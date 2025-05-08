@@ -1,6 +1,0 @@
-IP_Timestamp = 0 --> PFCP Flooding
-IP_Timestamp = 1 --> PFCP Deletion
-IP_Timestamp = 2 --> PFCP Modification
-IP_Timestamp = 3 --> API injection
-IP_Timestamp = 4 --> Nmap
-IP_Timestamp = 5 --> Reverse shell
