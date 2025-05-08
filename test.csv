@@ -1,5 +1,0 @@
-IP_TTL,TCP_Ack,TCP_Seq,TCP_Window,length,protocol,z_score,src_ip_encoded,dst_ip_encoded,src_port_encoded,dst_port_encoded,IP_Flags_DF,IP_Flags_nan,TCP_Flags_A,TCP_Flags_FA,TCP_Flags_FPA,TCP_Flags_PA,TCP_Flags_R,TCP_Flags_RA,TCP_Flags_S,TCP_Flags_SA,TCP_Flags_nan
-64,,,,175,17,1.78210012912,8,2,103,179,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0
-64,,,,175,17,1.78210012912,8,2,103,179,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0
-64,,,,175,17,1.78210012912,8,2,103,179,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0
-64,,,,175,17,1.78210012912,8,2,103,179,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0
