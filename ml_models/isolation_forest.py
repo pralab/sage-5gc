@@ -1,7 +1,7 @@
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.impute import SimpleImputer
 from sklearn.ensemble import IsolationForest
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
 
 
 class DetectionIsolationForest:
@@ -89,54 +89,8 @@ class DetectionIsolationForest:
         else:
             return 1  # Normal
 
-    def classify_anomalies(self, row, prediction):
-        if prediction == True:
-            if row["anomaly"] == 2 and row["predictions"] == -1:  # DoS
-                return 2
-            elif row["anomaly"] == 3 and row["predictions"] == -1:  # deletion
-                return 3
-            elif row["anomaly"] == 4 and row["predictions"] == -1:  # modification
-                return 4
-            elif row["anomaly"] == 5 and row["predictions"] == -1:  # injection
-                return 5
-            elif row["anomaly"] == 6 and row["predictions"] == -1:  # Nmap
-                return 6
-            elif row["anomaly"] == 7 and row["predictions"] == -1:  # Reverse shell
-                return 7
-            elif row["anomaly"] == 1 and row["predictions"] == 1:  # Normal
-                return 1
-            else:
-                return 0  # Missclassified
-        else:
-            if row["IP_Timestamp"] == 0:  # DoS
-                return 2
-            elif row["IP_Timestamp"] == 1:  # deletion
-                return 3
-            elif row["IP_Timestamp"] == 2:  # modification
-                return 4
-            elif row["IP_Timestamp"] == 3:  # injection
-                return 5
-            elif row["IP_Timestamp"] == 4:  # Nmap
-                return 6
-            elif row["IP_Timestamp"] == 5:  # Reverse shell
-                return 7
-            else:
-                return 1  # Normal
-
-    def run_isolation_forest(self, df_train_csv, df_test_csv):
-        # prepare training data
-        df_train = pd.read_csv(df_train_csv)
-        sorted_columns = sorted(df_train.columns)
-        df_train = df_train[sorted_columns]
+    def run_train(self, df_train: pd.DataFrame):
         x_train = self.prepare_data(df_train)
-
-        # prepare test data
-        df_test = pd.read_csv(df_test_csv)
-        sorted_columns = sorted(df_test.columns)
-        df_test = df_test[sorted_columns]
-        x_test = self.prepare_data(df_test)
-        df_test["anomaly"] = df_test.apply(self.tag_anomalies, axis=1)
-        y_test = df_test["anomaly"]
 
         parameters = {
             "bootstrap": True,
@@ -151,8 +105,17 @@ class DetectionIsolationForest:
         }
 
         iso_forest = IsolationForest(**parameters)
-
         iso_forest.fit(x_train)
-        y_pred = iso_forest.predict(x_test)
+
+        return iso_forest
+
+    def run_predict(self, df_test: pd.DataFrame, model: IsolationForest):
+        x_test = self.prepare_data(df_test)
+        df_test["anomaly"] = df_test.apply(self.tag_anomalies, axis=1)
+        y_test = df_test["anomaly"]
+
+        y_pred = model.predict(x_test)
 
         return y_test, y_pred
+
+

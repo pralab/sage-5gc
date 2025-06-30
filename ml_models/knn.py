@@ -1,9 +1,8 @@
+from imblearn.over_sampling import SMOTE
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import confusion_matrix
-from imblearn.over_sampling import SMOTE
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 class DetectionKnn:
@@ -87,32 +86,16 @@ class DetectionKnn:
         else:
             return 0  # Normal
 
-    def run_knn(self, df_train_csv, df_test_csv):
-        # prepare training data
-        df_train = pd.read_csv(df_train_csv)
-        sorted_columns = sorted(df_train.columns)
-        df_train = df_train[sorted_columns]
-
-        # Resample training data
+    def run_train(self, df_train: pd.DataFrame):
         x_train_prep = self.prepare_data(df_train)
         df_train["anomaly"] = df_train.apply(self.classify_anomalies, axis=1)
         y_train_prep = df_train["anomaly"]
-        # SMOTE oversamples all minority classes until they reach the size of the majority class.
-        smote = SMOTE(random_state=42)
 
-        # Oversampling
+        # SMOTE oversamples all minority classes until they reach the size of
+        # the majority class.
+        smote = SMOTE(random_state=42)
         x_train, y_train = smote.fit_resample(x_train_prep, y_train_prep)
 
-        # prepare test data
-        df_test = pd.read_csv(df_test_csv)
-        sorted_columns = sorted(df_test.columns)
-        df_test = df_test[sorted_columns]
-
-        x_test = self.prepare_data(df_test)
-        df_test["anomaly"] = df_test.apply(self.classify_anomalies, axis=1)
-        y_test = df_test["anomaly"]
-
-        # Define the model
         parameters = {
             "algorithm": "auto",
             "leaf_size": 30,
@@ -122,10 +105,17 @@ class DetectionKnn:
             "p": 1,
             "weights": "distance",
         }
-        knn = KNeighborsClassifier(**parameters)
 
-        # Fit the model to the data
+        knn = KNeighborsClassifier(**parameters)
         knn.fit(x_train, y_train)
-        y_pred = knn.predict(x_test)
+
+        return knn
+
+    def run_predict(self, df_test: pd.DataFrame, model: KNeighborsClassifier):
+        x_test = self.prepare_data(df_test)
+        df_test["anomaly"] = df_test.apply(self.classify_anomalies, axis=1)
+        y_test = df_test["anomaly"]
+
+        y_pred = model.predict(x_test)
 
         return y_test, y_pred

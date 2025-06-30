@@ -1,0 +1,15 @@
+line-length = 88
+target-version = "py310"
+indent-width = 4
+
+[lint]
+select = ["E", "F", "W", "I001"]
+ignore = []
+
+[lint.isort]
+force-sort-within-sections = true
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false

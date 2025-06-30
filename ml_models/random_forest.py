@@ -1,7 +1,7 @@
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
 
 
 class DetectionRandomForest:
@@ -83,26 +83,11 @@ class DetectionRandomForest:
         else:
             return 0  # Normal
 
-    def run_random_forest(self, df_train_csv, df_test_csv):
-        # prepare training data
-        df_train = pd.read_csv(df_train_csv)
-        sorted_columns = sorted(df_train.columns)
-        df_train = df_train[sorted_columns]
-
+    def run_train(self, df_train: pd.DataFrame):
         x_train = self.prepare_data(df_train)
         df_train["anomaly"] = df_train.apply(self.classify_anomalies, axis=1)
         y_train = df_train["anomaly"]
 
-        # prepare test data
-        df_test = pd.read_csv(df_test_csv)
-        sorted_columns = sorted(df_test.columns)
-        df_test = df_test[sorted_columns]
-
-        x_test = self.prepare_data(df_test)
-        df_test["anomaly"] = df_test.apply(self.classify_anomalies, axis=1)
-        y_test = df_test["anomaly"]
-
-        # Define the model
         parameters = {
             "bootstrap": True,
             "ccp_alpha": 0.0,
@@ -120,9 +105,17 @@ class DetectionRandomForest:
             "verbose": 0,
             "warm_start": False,
         }
-        rand_forest = RandomForestClassifier(**parameters)
 
+        rand_forest = RandomForestClassifier(**parameters)
         rand_forest.fit(x_train, y_train)
-        y_pred = rand_forest.predict(x_test)
+
+        return rand_forest
+
+    def run_predict(self, df_test: pd.DataFrame, model: RandomForestClassifier):
+        x_test = self.prepare_data(df_test)
+        df_test["anomaly"] = df_test.apply(self.classify_anomalies, axis=1)
+        y_test = df_test["anomaly"]
+
+        y_pred = model.predict(x_test)
 
         return y_test, y_pred
