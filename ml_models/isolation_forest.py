@@ -89,7 +89,7 @@ class DetectionIsolationForest:
         else:
             return 1  # Normal
 
-    def run_train(self, df_train: pd.DataFrame):
+    def run_train(self, df_train: pd.DataFrame) -> IsolationForest:
         x_train = self.prepare_data(df_train)
 
         parameters = {
@@ -110,6 +110,7 @@ class DetectionIsolationForest:
         return iso_forest
 
     def run_predict(self, df_test: pd.DataFrame, model: IsolationForest):
+        df_test = df_test.copy()
         x_test = self.prepare_data(df_test)
         df_test["anomaly"] = df_test.apply(self.tag_anomalies, axis=1)
         y_test = df_test["anomaly"]

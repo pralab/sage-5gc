@@ -1,5 +1,5 @@
 from .isolation_forest import DetectionIsolationForest
-from .random_forest import DetectionRandomForest
 from .knn import DetectionKnn
+from .random_forest import DetectionRandomForest
 
 __all__ = ["DetectionIsolationForest", "DetectionRandomForest", "DetectionKnn"]

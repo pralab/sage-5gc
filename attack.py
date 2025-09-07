@@ -16,9 +16,8 @@ def add_noise(
     ----------
     df : pd.DataFrame
         Input data.
-    noise_level : float or dict
-        If float, standard deviation of noise as a fraction of each column’s std.
-        If dict, mapping column name → noise_level for that column.
+    noise_level : float
+        Standard deviation of noise as a fraction of each column’s std.
     cols : list[str], optional
         Subset of columns to perturb. Defaults to all numeric columns.
     distribution : {'normal','uniform'}
