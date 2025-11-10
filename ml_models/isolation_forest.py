@@ -90,6 +90,7 @@ class DetectionIsolationForest:
             return 1  # Normal
 
     def run_train(self, df_train: pd.DataFrame) -> IsolationForest:
+        df_train = df_train.copy()
         x_train = self.prepare_data(df_train)
 
         parameters = {

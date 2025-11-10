@@ -84,6 +84,7 @@ class DetectionRandomForest:
             return 0  # Normal
 
     def run_train(self, df_train: pd.DataFrame) -> RandomForestClassifier:
+        df_train = df_train.copy()
         x_train = self.prepare_data(df_train)
         df_train["anomaly"] = df_train.apply(self.classify_anomalies, axis=1)
         y_train = df_train["anomaly"]

@@ -87,6 +87,7 @@ class DetectionKnn:
             return 0  # Normal
 
     def run_train(self, df_train: pd.DataFrame) -> KNeighborsClassifier:
+        df_train = df_train.copy()
         x_train_prep = self.prepare_data(df_train)
         df_train["anomaly"] = df_train.apply(self.classify_anomalies, axis=1)
         y_train_prep = df_train["anomaly"]

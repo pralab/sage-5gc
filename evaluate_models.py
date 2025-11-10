@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score
 
-from attack import add_noise
+from attack import add_noise, perform_fingerprinting3
 from ml_models import DetectionIsolationForest, DetectionKnn, DetectionRandomForest
 
 logging.basicConfig(
@@ -14,99 +14,6 @@ logging.basicConfig(
 )
 
 TRAIN = False
-
-
-def perform_fingerprinting(
-    detection, model, df: pd.DataFrame, noise_level: float = 0.01
-) -> tuple[list[str], np.ndarray]:
-    """
-    Create a simple fingerprint by perturbing one column at a time and
-    recording how often the model's prediction changes compared to the
-    unmodified dataframe.
-
-    Parameters
-    ----------
-    detection: DetectionIsolationForest | DetectionKnn | DetectionRandomForest
-        Detection wrapper that implements `run_predict(df, model)` and returns
-        (y_test, y_pred).
-    model: IsolationForest | KNeighborsClassifier | RandomForestClassifier
-        Sklearn model to evaluate.
-    df: pd.DataFrame
-        DataFrame with data (will not be modified in-place).
-    noise_level: float
-        Noise level to use for numeric columns.
-
-    Returns
-    -------
-    tuple[list[str], np.ndarray]
-        Tuple containing a list of perturbed column names and a numpy array with
-        the fraction of samples whose prediction changed after perturbing that column.
-
-    Notes
-    -----
-    - Numeric features are perturbed using `add_noise` from `attack.py`.
-    - Categorical features are perturbed by rotating category values (deterministic).
-    """
-    categorical_cols = [
-        "Chksum",
-        "IP_Chksum",
-        "IP_Flags",
-        "IP_ID",
-        "IP_IHL",
-        "IP_TOS",
-        "IP_TTL",
-        "IP_Version",
-        "TCP_Dataofs",
-        "TCP_Flags",
-        "protocol",
-        "src_port",
-    ]
-
-    numeric_cols = ["TCP_Ack", "TCP_Seq", "TCP_Urgent", "TCP_Window", "length"]
-
-    cols_to_test = [c for c in categorical_cols + numeric_cols if c in df.columns]
-
-    # Baseline predictions
-    _, y_pred_baseline = detection.run_predict(df, model)
-    y_pred_baseline = np.asarray(y_pred_baseline)
-
-    sensitivities: list[float] = []
-    for col in cols_to_test:
-        df_mod = df.copy()
-
-        # Numeric features
-        if col in numeric_cols and col in df_mod.columns:
-            df_mod = add_noise(
-                df_mod, noise_level=noise_level, cols=[col], distribution="normal"
-            )
-        else:
-            # Categorical features
-            uniques = pd.unique(df_mod[col]).tolist()
-            if len(uniques) <= 1:
-                sensitivities.append(0.0)
-                continue
-
-            # For each row, pick a random value from the pool of uniques.
-            choices = np.random.choice(uniques, size=len(df_mod))
-            df_mod[col] = choices
-
-        try:
-            _, y_pred_mod = detection.run_predict(df_mod, model)
-        except Exception as e:
-            logging.warning(f"Prediction failed for column {col}: {e}")
-            sensitivities.append(0.0)
-            continue
-
-        y_pred_mod = np.asarray(y_pred_mod)
-
-        # Compute fraction of changed predictions
-        if y_pred_mod.shape != y_pred_baseline.shape:
-            sensitivities.append(0.0)
-        else:
-            changed_frac = float(np.mean(y_pred_mod != y_pred_baseline)) * 100.0
-            sensitivities.append(changed_frac)
-
-    return cols_to_test, np.asarray(sensitivities)
 
 
 def evaluate_robustness(
@@ -227,13 +134,15 @@ def main() -> None:
             "random_forest": joblib.load("trained_models/random_forest.joblib"),
         }
 
-    # --------------------
-    # [Step]
-    # --------------------
-    fig, axs = plt.subplots(1, 3, figsize=(10, 6))
+    # ------------------------
+    # [Step 3] Fingerprinting
+    # ------------------------
+    logging.info("Performing fingerprinting evaluation...")
+
+    _, axs = plt.subplots(1, 3, figsize=(14, 6))
 
     for name in detections.keys():
-        column_names, changed = perform_fingerprinting(
+        column_names, changed = perform_fingerprinting3(
             detections[name],
             models[name],
             df_test,
@@ -242,14 +151,13 @@ def main() -> None:
 
         logging.info(f"Fingerprinting results ({name.replace('_', ' ').capitalize()}):")
         for col, frac in zip(column_names, changed):
-            logging.info(f"  Column: {col:15s}  Changed fraction: {frac:.2f} %")
+            logging.info(f"  Column: {col:30s}  Changed fraction: {frac:.2f} %")
 
         axs[list(detections.keys()).index(name)].barh(column_names, changed)
         axs[list(detections.keys()).index(name)].set_title(
             name.replace("_", " ").capitalize()
         )
         axs[list(detections.keys()).index(name)].set_xlabel("Changed fraction (%)")
-        axs[list(detections.keys()).index(name)].set_ylabel("Column")
         axs[list(detections.keys()).index(name)].set_xlim(0, 100)
         axs[list(detections.keys()).index(name)].grid(
             axis="x", linestyle="--", alpha=0.6
