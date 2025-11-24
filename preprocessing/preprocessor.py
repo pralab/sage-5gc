@@ -16,13 +16,11 @@ def safe_read_csv(path, **kwargs):
         df = pd.read_csv(path, sep=';', low_memory=False, encoding=encoding, **kwargs)
         # Caso 1 → DataFrame
         if isinstance(df, pd.DataFrame):
-            #print(f"[{encoding}] Prima riga: {df.iloc[0].to_dict()}")
             return df
         # Caso 2 → TextFileReader (chunksize > 0)
         else:
             first_chunk = next(df)  # prende il primo chunk
-            #print(f"[{encoding}] Prima riga: {first_chunk.iloc[0].to_dict()}")
-            return df  # ritorna il reader originale
+            return df  
     try:
         return load_and_preview("utf-8")
     except UnicodeDecodeError:
@@ -478,7 +476,6 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
     sep = ';'
     chunksize = 50000
     exclude_att = ["ip.opt.time_stamp", "frame.number", "source_file"]
-
     scaler, columns_to_scale = fit_scaler_on_file(f"{output_dir}/dataset_1_filtered.csv", exclude_cols=exclude_att,
                                                   chunksize=chunksize, sep=sep)
     dump(scaler, "models_preprocessing/scaler.pkl")
@@ -506,7 +503,6 @@ def preprocessing_pipeline_partial(
     Può ricevere direttamente un DataFrame o un percorso a file CSV.
     """
     temp_dir = None
-
     if in_memory:
         # Usa una cartella temporanea per tutti gli output
         temp_dir = tempfile.mkdtemp(prefix="preproc_partial_")
@@ -626,11 +622,12 @@ def preprocessing_pipeline_partial(
     print(f"✅ Dataset preprocessato e salvato in: {final_path}")
 
     if in_memory and temp_dir is not None:
-        # Cancella TUTTA la directory temporanea con tutti i file intermedi
+        # Cancella la directory temporanea con tutti i file intermedi
         try:
             shutil.rmtree(temp_dir)
         except OSError:
             pass
 
     return final_df
+
 
