@@ -236,3 +236,116 @@ def perform_fingerprinting3(
     return [
         f"{col} - {col1} - {col2}" for col, col1, col2 in tuples_to_test
     ], sensitivities
+
+
+def perform_fingerprinting_modifiable_categorical_clean(
+        detection,
+        model,
+        df: pd.DataFrame,
+        threshold: float = 1.0,
+        in_memory: bool = False,
+) -> tuple[list[str], list[float]]:
+    """
+    Model fingerprinting con trattamento CATEGORICO UNIVERSALE.
+    - Numeric → swap tra valori esistenti nel training set
+    - Categorical/Binary → swap tra valori esistenti nel training set
+
+    NO noise gaussiano, NO scaling, SOLO SWAP categorico!
+
+    Parameters
+    ----------
+    detection : Detection class
+        Detector con metodo run_predict(df)
+    model : ML model
+        Trained model to fingerprint
+    df : pd.DataFrame
+        Sample dataframe (attack traffic)
+    noise_level : float
+        NON USATO (mantenuto per backward compatibility)
+    threshold : float
+        Min impact (%) per considerare feature "effective"
+
+    Returns
+    -------
+    tuple
+        - tested_features: list[str] - feature names testate
+        - sensitivities: list[float] - impact scores (%)
+    """
+    from modifiable_features_fingerprinting import MODIFIABLE_FEATURES
+    from preprocessing.preprocessor import preprocessing_pipeline_partial
+    import os
+    OUTPUT_DIR = "fingerprinted_datasets"
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    logger = logging.getLogger(__name__)
+    logger.info("🔍 Starting model fingerprinting (CATEGORICAL treatment for ALL features)...")
+
+    # ========== Step 1: Filter modifiable features ==========
+    available_features = [f for f in MODIFIABLE_FEATURES if f in df.columns]
+    logger.info(f"   Available modifiable features: {len(available_features)}/{len(MODIFIABLE_FEATURES)}")
+    if len(available_features) == 0:
+        logger.warning("⚠️  No modifiable features found!")
+        return [], []
+    missing_features = [f for f in MODIFIABLE_FEATURES if f not in df.columns]
+    # Log the missing features
+    if missing_features:
+        logger.warning(f"Missing features in the dataset: {missing_features}")
+
+    # ========== Step 2: Baseline predictions ==========
+    ###### ADD PREPROCESSING STEP ######
+    df_pp = preprocessing_pipeline_partial(output_dir=f"{OUTPUT_DIR}/final_datasets_original", df=df, in_memory=in_memory)
+
+    _, y_pred_baseline = detection.run_predict(df_pp)
+    y_pred_baseline = np.asarray(y_pred_baseline)
+    # ========== Step 3: Test each feature (CATEGORICAL swap) ==========
+    sensitivities: list[float] = []
+    tested_features: list[str] = []
+
+    for col in available_features:
+        tested_features.append(col)
+        df_mod = df.copy()
+        # ✅ TRATTAMENTO CATEGORICO UNIVERSALE: swap tra valori unici
+        try:
+            uniques = df[col].unique().tolist()
+            # Rimuovi NaN se presenti
+            uniques = [v for v in uniques if pd.notna(v)]
+            if len(uniques) <= 1:
+                # Feature costante o single-valued → skip
+                sensitivities.append(0.0)
+                logger.info(f"   Feature '{col}': 0.00% ❌ SKIPPED (constant feature)")
+                continue
+            # Swap: scegli random da valori esistenti
+            df_mod[col] = np.random.choice(uniques, size=len(df))
+
+        except Exception as e:
+            logger.warning(f"Failed to perturb {col}: {e}")
+            sensitivities.append(0.0)
+            continue
+
+        # Predict con feature perturbata
+        try:
+            ###### ADD PREPROCESSING STEP ######
+            clean_path = os.path.join(OUTPUT_DIR, f"cleaned_dataset_mod/dataset_3_cleaned_fingerprinted_{col}.csv")
+            df_mod.to_csv(clean_path, sep=';', index=False)
+            df_mod_pp = preprocessing_pipeline_partial(output_dir=f"{OUTPUT_DIR}/final_datasets_mod", dataset_name=f"dataset_3_final_{col}", df=df_mod, in_memory=in_memory)
+
+            _, y_pred_mod = detection.run_predict(df_mod_pp)
+            y_pred_mod = np.asarray(y_pred_mod)
+            # Compute impact
+            if y_pred_mod.shape != y_pred_baseline.shape:
+                impact = 0.0
+            else:
+                impact = float(np.mean(y_pred_mod != y_pred_baseline)) * 100.0
+            sensitivities.append(impact)
+            # Log
+            status = "✅ EFFECTIVE" if impact > threshold else "❌ INEFFECTIVE"
+            logger.info(f"   Feature '{col}' (CATEGORICAL): {impact:.2f}% {status}")
+
+        except Exception as e:
+            logger.warning(f"Prediction failed for {col}: {e}")
+            sensitivities.append(0.0)
+
+    logger.info(f"✅ Fingerprinting complete!")
+    logger.info(f"   Effective features: {sum(1 for imp in sensitivities if imp > threshold)}/{len(sensitivities)}")
+
+    return tested_features, sensitivities
