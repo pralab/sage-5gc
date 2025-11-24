@@ -1,0 +1,11 @@
+[
+  "ip.dsfield",
+  "ip.flags",
+  "pfcp.flags",
+  "pfcp.flow_desc",
+  "pfcp.network_instance",
+  "tcp.completeness.str",
+  "tcp.completeness.syn-ack",
+  "tcp.flags",
+  "tcp.flags.str"
+]
