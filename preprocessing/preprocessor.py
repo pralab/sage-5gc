@@ -731,7 +731,6 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
 # ============================================================================
 # PARTIAL PIPELINE FOR SINGLE-DATASET PROCESSING
 # ============================================================================
-
 def preprocessing_pipeline_partial(
     input_file: str | None = None,
     output_dir: str = "final_datasets_from_preprocessing_partial",
@@ -791,21 +790,16 @@ def preprocessing_pipeline_partial(
 
     # === STEP 4: IMPUTE NUMERICAL ===
     imputer = joblib.load("preprocessing/models_preprocessing/imputer_attack.pkl")
-    #imputer = joblib.load("models_preprocessing/imputer_attack.pkl")
     with open("preprocessing/models_preprocessing/attack_cols.json") as f:
-    #with open("models_preprocessing/attack_cols.json") as f:
         valid_cols = json.load(f)
     imputed_path = os.path.join(work_dir, f"{dataset_name}_imputed.csv")
     impute_file(drop_path, imputed_path, valid_cols, imputer)
     # === STEP 5: ENCODING ===
     encoder = joblib.load("preprocessing/models_preprocessing/encoder.pkl")
-    #encoder = joblib.load("models_preprocessing/encoder.pkl")
     with open("preprocessing/models_preprocessing/non_num_cols.json") as f:
-    #with open("models_preprocessing/non_num_cols.json") as f:
         non_num_cols = json.load(f)
 
     df = safe_read_csv(imputed_path)
-
     freq_cols = [
         'ip.src_host', 'ip.dst_host', 'ip.host', 'ip.addr', 'ip.src', 'ip.dst',
         'tcp.srcport', 'tcp.dstport', 'udp.srcport', 'udp.dstport',
@@ -828,7 +822,6 @@ def preprocessing_pipeline_partial(
     for col in freq_cols:
         if col in df.columns:
             df[col] = frequency_encode(df, col)
-
     # Time conversion
     for col in time_columns:
         if col in df.columns:
@@ -850,7 +843,6 @@ def preprocessing_pipeline_partial(
     if timestamp_col is not None:
         if special_columns[0] not in df.columns:
             df_ref = safe_read_csv("preprocessing/final_datasets_from_preprocessing/dataset_3_encoded.csv", nrows=1)
-            #df_ref = safe_read_csv("final_datasets_from_preprocessing/dataset_3_encoded.csv", nrows=1)
             col_order = list(df_ref.columns)
             insert_pos = col_order.index(special_columns[0]) if special_columns[0] in col_order else len(df.columns)
             df.insert(insert_pos, special_columns[0], timestamp_col)
@@ -858,16 +850,13 @@ def preprocessing_pipeline_partial(
 
     # === STEP 6: CORRELATION FILTERING ===
     with open("preprocessing/models_preprocessing/cols_to_remove.json") as f:
-    #with open("models_preprocessing/cols_to_remove.json") as f:
         cols_to_remove = json.load(f)
     filtered_path = os.path.join(work_dir, f"{dataset_name}_filtered.csv")
     apply_filter_and_save(encoded_path, filtered_path, cols_to_remove)
 
     # === STEP 7: Z-SCORE NORMALIZATION ===
     scaler = joblib.load("preprocessing/models_preprocessing/scaler.pkl")
-    #scaler = joblib.load("models_preprocessing/scaler.pkl")
     with open("preprocessing/models_preprocessing/columns_to_scale.json") as f:
-    #with open("models_preprocessing/columns_to_scale.json") as f:
         columns_to_scale = json.load(f)
     final_path = os.path.join(work_dir, f"{dataset_name}_final.csv")
     transform_file_with_scaler(filtered_path, final_path, scaler, columns_to_scale,
@@ -886,6 +875,7 @@ def preprocessing_pipeline_partial(
             pass
 
     return final_df
+
 
 
 
