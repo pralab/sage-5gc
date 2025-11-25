@@ -1,10 +1,13 @@
 import logging
+import os
 
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 
 from ml_models import DetectionIsolationForest, DetectionKnn, DetectionRandomForest
+from modifiable_features_fingerprinting import MODIFIABLE_FEATURES
+from preprocessing.preprocessor import preprocessing_pipeline_partial
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -153,97 +156,12 @@ def perform_fingerprinting(
     return cols_to_test, sensitivities
 
 
-def perform_fingerprinting2(
-    detection: DetectionIsolationForest | DetectionKnn | DetectionRandomForest,
-    model,
-    df: pd.DataFrame,
-    noise_level: float = 0.01,
-) -> tuple[list[str], list[float]]:
-    cols_to_test = [c for c in CATEGORICAL_COLS + NUMERIC_COLS if c in df.columns]
-    tuples_to_test = [("IP_Flags", col) for col in cols_to_test if col != "IP_Flags"]
-
-    # Baseline predictions
-    _, y_pred_baseline = detection.run_predict(df, model)
-    y_pred_baseline = np.asarray(y_pred_baseline)
-
-    sensitivities: list[float] = []
-    for col, col1 in tuples_to_test:
-        df_mod = df.copy()
-
-        df_mod = _perturb_col(col, df_mod, noise_level)
-        df_mod = _perturb_col(col1, df_mod, noise_level)
-
-        try:
-            _, y_pred_mod = detection.run_predict(df_mod, model)
-        except Exception as e:
-            logging.warning(f"Prediction failed for column {col}: {e}")
-            sensitivities.append(0.0)
-            continue
-
-        y_pred_mod = np.asarray(y_pred_mod)
-
-        # Compute fraction of changed predictions
-        if y_pred_mod.shape != y_pred_baseline.shape:
-            sensitivities.append(0.0)
-        else:
-            changed_frac = float(np.mean(y_pred_mod != y_pred_baseline)) * 100.0
-            sensitivities.append(changed_frac)
-
-    return [f"{col} - {col1}" for (col, col1) in tuples_to_test], sensitivities
-
-
-def perform_fingerprinting3(
-    detection: DetectionIsolationForest | DetectionKnn | DetectionRandomForest,
-    model,
-    df: pd.DataFrame,
-    noise_level: float = 0.01,
-) -> tuple[list[str], list[float]]:
-    cols_to_test = [c for c in CATEGORICAL_COLS + NUMERIC_COLS if c in df.columns]
-    tuples_to_test = [
-        ("IP_Flags", "TCP_Flags", col)
-        for col in cols_to_test
-        if col != "IP_Flags" or col != "TCP_Flags"
-    ]
-
-    # Baseline predictions
-    _, y_pred_baseline = detection.run_predict(df, model)
-    y_pred_baseline = np.asarray(y_pred_baseline)
-
-    sensitivities: list[float] = []
-    for col, col1, col2 in tuples_to_test:
-        df_mod = df.copy()
-
-        df_mod = _perturb_col(col, df_mod, noise_level)
-        df_mod = _perturb_col(col1, df_mod, noise_level)
-        df_mod = _perturb_col(col2, df_mod, noise_level)
-
-        try:
-            _, y_pred_mod = detection.run_predict(df_mod, model)
-        except Exception as e:
-            logging.warning(f"Prediction failed for column {col}: {e}")
-            sensitivities.append(0.0)
-            continue
-
-        y_pred_mod = np.asarray(y_pred_mod)
-
-        # Compute fraction of changed predictions
-        if y_pred_mod.shape != y_pred_baseline.shape:
-            sensitivities.append(0.0)
-        else:
-            changed_frac = float(np.mean(y_pred_mod != y_pred_baseline)) * 100.0
-            sensitivities.append(changed_frac)
-
-    return [
-        f"{col} - {col1} - {col2}" for col, col1, col2 in tuples_to_test
-    ], sensitivities
-
-
 def perform_fingerprinting_modifiable_categorical_clean(
-        detection,
-        model,
-        df: pd.DataFrame,
-        threshold: float = 1.0,
-        in_memory: bool = False,
+    detection,
+    model,
+    df: pd.DataFrame,
+    threshold: float = 1.0,
+    in_memory: bool = False,
 ) -> tuple[list[str], list[float]]:
     """
     Model fingerprinting con trattamento CATEGORICO UNIVERSALE.
@@ -271,18 +189,19 @@ def perform_fingerprinting_modifiable_categorical_clean(
         - tested_features: list[str] - feature names testate
         - sensitivities: list[float] - impact scores (%)
     """
-    from modifiable_features_fingerprinting import MODIFIABLE_FEATURES
-    from preprocessing.preprocessor import preprocessing_pipeline_partial
-    import os
     OUTPUT_DIR = "fingerprinted_datasets"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     logger = logging.getLogger(__name__)
-    logger.info("🔍 Starting model fingerprinting (CATEGORICAL treatment for ALL features)...")
+    logger.info(
+        "🔍 Starting model fingerprinting (CATEGORICAL treatment for ALL features)..."
+    )
 
     # ========== Step 1: Filter modifiable features ==========
     available_features = [f for f in MODIFIABLE_FEATURES if f in df.columns]
-    logger.info(f"   Available modifiable features: {len(available_features)}/{len(MODIFIABLE_FEATURES)}")
+    logger.info(
+        f"   Available modifiable features: {len(available_features)}/{len(MODIFIABLE_FEATURES)}"
+    )
     if len(available_features) == 0:
         logger.warning("⚠️  No modifiable features found!")
         return [], []
@@ -293,7 +212,9 @@ def perform_fingerprinting_modifiable_categorical_clean(
 
     # ========== Step 2: Baseline predictions ==========
     ###### ADD PREPROCESSING STEP ######
-    df_pp = preprocessing_pipeline_partial(output_dir=f"{OUTPUT_DIR}/final_datasets_original", df=df, in_memory=in_memory)
+    df_pp = preprocessing_pipeline_partial(
+        output_dir=f"{OUTPUT_DIR}/final_datasets_original", df=df, in_memory=in_memory
+    )
 
     _, y_pred_baseline = detection.run_predict(df_pp)
     y_pred_baseline = np.asarray(y_pred_baseline)
@@ -325,9 +246,17 @@ def perform_fingerprinting_modifiable_categorical_clean(
         # Predict con feature perturbata
         try:
             ###### ADD PREPROCESSING STEP ######
-            clean_path = os.path.join(OUTPUT_DIR, f"cleaned_dataset_mod/dataset_3_cleaned_fingerprinted_{col}.csv")
-            df_mod.to_csv(clean_path, sep=';', index=False)
-            df_mod_pp = preprocessing_pipeline_partial(output_dir=f"{OUTPUT_DIR}/final_datasets_mod", dataset_name=f"dataset_3_final_{col}", df=df_mod, in_memory=in_memory)
+            clean_path = os.path.join(
+                OUTPUT_DIR,
+                f"cleaned_dataset_mod/dataset_3_cleaned_fingerprinted_{col}.csv",
+            )
+            df_mod.to_csv(clean_path, sep=";", index=False)
+            df_mod_pp = preprocessing_pipeline_partial(
+                output_dir=f"{OUTPUT_DIR}/final_datasets_mod",
+                dataset_name=f"dataset_3_final_{col}",
+                df=df_mod,
+                in_memory=in_memory,
+            )
 
             _, y_pred_mod = detection.run_predict(df_mod_pp)
             y_pred_mod = np.asarray(y_pred_mod)
@@ -346,6 +275,8 @@ def perform_fingerprinting_modifiable_categorical_clean(
             sensitivities.append(0.0)
 
     logger.info(f"✅ Fingerprinting complete!")
-    logger.info(f"   Effective features: {sum(1 for imp in sensitivities if imp > threshold)}/{len(sensitivities)}")
+    logger.info(
+        f"   Effective features: {sum(1 for imp in sensitivities if imp > threshold)}/{len(sensitivities)}"
+    )
 
     return tested_features, sensitivities

@@ -1,18 +1,23 @@
 import os
 import random
+
 import numpy as np
 import pandas as pd
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import TensorDataset, DataLoader, random_split
-from torchvision.ops import MLP
 from sklearn.metrics import (
-    classification_report, confusion_matrix, roc_auc_score, f1_score,
-    precision_score, recall_score, accuracy_score, balanced_accuracy_score,
+    accuracy_score,
+    balanced_accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
 )
 import torch
-from torch.utils.data import TensorDataset, DataLoader
-
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset, random_split
+from torchvision.ops import MLP
 
 seed = 42
 random.seed(seed)
@@ -34,14 +39,14 @@ class MLPAutoencoder(nn.Module):
             in_channels=input_dim,
             hidden_channels=[64, 16, latent_dim],
             activation_layer=nn.LeakyReLU,
-            dropout=p_drop
+            dropout=p_drop,
         )
         self.enc_bn = nn.BatchNorm1d(latent_dim)
         self.decoder = MLP(
             in_channels=latent_dim,
             hidden_channels=[16, 64, input_dim],
             activation_layer=nn.LeakyReLU,
-            dropout=p_drop
+            dropout=p_drop,
         )
 
     def forward(self, x):
@@ -65,24 +70,30 @@ class DetectionAutoEncoder:
         self.y_true_bin = None
 
     def load_train_data(self, df_train_csv: str):
-        df_train = pd.read_csv(df_train_csv, sep=';')
+        df_train = pd.read_csv(df_train_csv, sep=";")
         cols_to_drop = ["ip.opt.time_stamp", "frame.number"]
-        X_train_df = df_train.drop(columns=cols_to_drop, errors="ignore").select_dtypes(include="number")
+        X_train_df = df_train.drop(columns=cols_to_drop, errors="ignore").select_dtypes(
+            include="number"
+        )
         self.X_train = X_train_df.values
         self.input_dim = X_train_df.shape[1]
         print(len(X_train_df.columns))
 
     def load_test_data(self, df_test_csv: str):
-        df_test = pd.read_csv(df_test_csv, sep=';')
+        df_test = pd.read_csv(df_test_csv, sep=";")
         cols_to_drop = ["ip.opt.time_stamp", "frame.number"]
-        X_test_df = df_test.drop(columns=cols_to_drop, errors="ignore").select_dtypes(include="number")
+        X_test_df = df_test.drop(columns=cols_to_drop, errors="ignore").select_dtypes(
+            include="number"
+        )
         self.X_test = X_test_df.values
         y_test_raw = df_test["ip.opt.time_stamp"]
         y_test = y_test_raw.fillna(-1).astype(int).values
         self.y_true_bin = (y_test != -1).astype(int)
         print(len(X_test_df.columns))
 
-    def train_autoencoder(self, lr=3e-4, num_epochs=200, patience=10, sparsity_coef=1e-4, latent_dim=2):
+    def train_autoencoder(
+        self, lr=3e-4, num_epochs=200, patience=10, sparsity_coef=1e-4, latent_dim=2
+    ):
         if self.X_train is None or self.input_dim is None:
             raise ValueError("Call load_train_data() first")
         # Tensors
@@ -98,7 +109,9 @@ class DetectionAutoEncoder:
         val_loader = DataLoader(val_ds, batch_size=64, shuffle=False)
 
         # Model
-        self.model = MLPAutoencoder(input_dim=self.input_dim, latent_dim=latent_dim, p_drop=0.1).to(self.device)
+        self.model = MLPAutoencoder(
+            input_dim=self.input_dim, latent_dim=latent_dim, p_drop=0.1
+        ).to(self.device)
         criterion = nn.L1Loss()
         optimizer = optim.Adam(self.model.parameters(), lr=lr)
         best_val = float("inf")
@@ -135,12 +148,17 @@ class DetectionAutoEncoder:
                     val_loss_sum += vloss.item() * bs
                     n_val += bs
             val_loss = val_loss_sum / max(1, n_val)
-            print(f"Epoch [{epoch}/{num_epochs}] - train_loss: {train_loss:.6f} - val_loss: {val_loss:.6f}")
+            print(
+                f"Epoch [{epoch}/{num_epochs}] - train_loss: {train_loss:.6f} - val_loss: {val_loss:.6f}"
+            )
             # Early stopping
             if val_loss < best_val - 1e-6:
                 best_val = val_loss
                 bad = 0
-                best_state = {k: v.detach().cpu().clone() for k, v in self.model.state_dict().items()}
+                best_state = {
+                    k: v.detach().cpu().clone()
+                    for k, v in self.model.state_dict().items()
+                }
             else:
                 bad += 1
                 if bad >= patience:
@@ -158,7 +176,9 @@ class DetectionAutoEncoder:
 
         self.model.eval()
         X_test_tensor = torch.tensor(self.X_test, dtype=torch.float32)
-        test_loader = DataLoader(TensorDataset(X_test_tensor), batch_size=64, shuffle=False)
+        test_loader = DataLoader(
+            TensorDataset(X_test_tensor), batch_size=64, shuffle=False
+        )
         reconstruction_errors = []
         with torch.no_grad():
             for (x_batch,) in test_loader:
@@ -186,7 +206,9 @@ class DetectionAutoEncoder:
             self.threshold = th
             y_pred = (self.errors > th).astype(int)
             f1 = f1_score(self.y_true_bin, y_pred)
-            print(f"Forced threshold (percentile {enforce_percentile}): {self.threshold:.6f} (F1={f1:.4f})")
+            print(
+                f"Forced threshold (percentile {enforce_percentile}): {self.threshold:.6f} (F1={f1:.4f})"
+            )
         else:
             best = {"q": None, "th": None, "f1": -1, "y_pred": None}
             for q in candidates:
@@ -208,7 +230,6 @@ class DetectionAutoEncoder:
             self.compute_errors()
         return (self.errors > self.threshold).astype(int)
 
-
     def save_model(self, path: str = "trained_models/autoencoder.pth"):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         torch.save(
@@ -227,7 +248,9 @@ class DetectionAutoEncoder:
         self.threshold = ckpt.get("threshold", None)
         if self.input_dim is None:
             raise ValueError("Checkpoint without 'input_dim'.")
-        self.model = MLPAutoencoder(input_dim=self.input_dim, latent_dim=2, p_drop=0.1).to(self.device)
+        self.model = MLPAutoencoder(
+            input_dim=self.input_dim, latent_dim=2, p_drop=0.1
+        ).to(self.device)
         self.model.load_state_dict(ckpt["state_dict"])
         self.model.eval()
         print(f"✓ Autoencoder loaded from {path} (threshold={self.threshold})")
@@ -246,14 +269,18 @@ class DetectionAutoEncoder:
         tuple
         """
         cols_to_drop = ["ip.opt.time_stamp", "frame.number"]
-        X_test_df = df_test.drop(columns=cols_to_drop, errors="ignore").select_dtypes(include="number")
+        X_test_df = df_test.drop(columns=cols_to_drop, errors="ignore").select_dtypes(
+            include="number"
+        )
         # Labels
         y_test_raw = df_test["ip.opt.time_stamp"]
         y_test_filled = y_test_raw.fillna(-1).astype(int)
         y_test = (y_test_filled != -1).astype(int)  # 0=normal, 1=attack
         # Convert to tensor
         X_test_tensor = torch.tensor(X_test_df.values, dtype=torch.float32)
-        test_loader = DataLoader(TensorDataset(X_test_tensor), batch_size=64, shuffle=False)
+        test_loader = DataLoader(
+            TensorDataset(X_test_tensor), batch_size=64, shuffle=False
+        )
         # Compute reconstruction errors
         self.model.eval()
         reconstruction_errors = []
@@ -276,13 +303,19 @@ class DetectionAutoEncoder:
         return y_test, y_pred
 
 
-def evaluate_predictions_ae(y_true_bin: np.ndarray, y_pred_bin: np.ndarray, errors: np.ndarray | None = None):
+def evaluate_predictions_ae(
+    y_true_bin: np.ndarray, y_pred_bin: np.ndarray, errors: np.ndarray | None = None
+):
     labels = [0, 1]
     cm = confusion_matrix(y_true_bin, y_pred_bin, labels=labels)
     print("Confusion Matrix (AE) [0=normal, 1=anomaly]:")
     print(cm)
     print("\nClassification Report (AE):")
-    print(classification_report(y_true_bin, y_pred_bin, labels=labels, digits=4, zero_division=0))
+    print(
+        classification_report(
+            y_true_bin, y_pred_bin, labels=labels, digits=4, zero_division=0
+        )
+    )
     bal_acc = balanced_accuracy_score(y_true_bin, y_pred_bin)
     print("Balanced accuracy:", bal_acc)
     if errors is not None:
@@ -300,10 +333,19 @@ def evaluate_predictions_ae(y_true_bin: np.ndarray, y_pred_bin: np.ndarray, erro
     print(f"F1: {f1:.6f}")
     print(f"Precision: {prec:.6f}")
     print(f"Recall: {rec:.6f}")
-    return {"cm": cm, "balanced_accuracy": bal_acc, "accuracy": acc, "precision": prec, "recall": rec, "f1": f1}
+    return {
+        "cm": cm,
+        "balanced_accuracy": bal_acc,
+        "accuracy": acc,
+        "precision": prec,
+        "recall": rec,
+        "f1": f1,
+    }
 
 
-def run_autoencoder(detector: DetectionAutoEncoder, test_csv: str, enforce_percentile=None):
+def run_autoencoder(
+    detector: DetectionAutoEncoder, test_csv: str, enforce_percentile=None
+):
     print("\n" + "=" * 80)
     print(f"TEST DATASET (AE): {test_csv}")
     print("=" * 80)
@@ -312,4 +354,3 @@ def run_autoencoder(detector: DetectionAutoEncoder, test_csv: str, enforce_perce
     detector.optimize_threshold(enforce_percentile=enforce_percentile)
     y_pred = detector.predict()  # 0=normal, 1=anomaly
     evaluate_predictions_ae(detector.y_true_bin, y_pred, errors=detector.errors)
-

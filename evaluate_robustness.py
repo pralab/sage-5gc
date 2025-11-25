@@ -1,18 +1,17 @@
 import os
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 
-from ml_models import (
-    DetectionIsolationForest,
-    DetectionRandomForest,
-    DetectionKnn,
-    DetectionAutoEncoder
-)
-
 from attack import add_noise
-
+from ml_models import (
+    DetectionAutoEncoder,
+    DetectionIsolationForest,
+    DetectionKnn,
+    DetectionRandomForest,
+)
 
 MODELS_DIR = "trained_models"
 TEST_CSV = "final_datasets/dataset_3_final.csv"

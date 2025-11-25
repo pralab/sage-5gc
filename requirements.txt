@@ -1,6 +1,9 @@
-imbalanced-learn
-scikit-learn
-pandas
-matplotlib
-graphviz
-joblib
+imbalanced-learn>=0.14.0
+scikit-learn>=1.7.2
+pandas>=2.3.3
+matplotlib>=3.10.7
+graphviz>=0.21
+joblib>=1.5.2
+nevergrad>=1.0.12
+torch>=2.9.1
+torchvision>=0.24.1
