@@ -1,15 +1,6 @@
-"""
-Modifiable Features for Network Traffic Attack (Thales Project)
-
-✅ VERSIONE AGGIORNATA:
-- TUTTE le feature sono trattate come CATEGORICHE (swap tra valori training set)
-- Lista espansa con IP/TCP/UDP/PFCP modificabili dalle tabelle
-"""
-
 # ============================================================================
-# 🎯 FEATURE MODIFICABILI (dalle tabelle IP/TCP/UDP/PFCP)
+# MODIFIABLE FEATURE (from tables IP/TCP/UDP/PFCP)
 # ============================================================================
-
 MODIFIABLE_FEATURES = {
     # === Core IP Headers ===
     'ip.ttl',                # Time To Live ok
@@ -33,7 +24,7 @@ MODIFIABLE_FEATURES = {
     'tcp.options.timestamp.tsecr',  # Timestamp Echo Reply
     'tcp.window_size_value',  # Window size
 
-    # === PFCP Accounting (modificabili) ===
+    # === PFCP Accounting ===
     'pfcp.duration_measurement',      # Duration measurement
     'pfcp.time_of_first_packet',      # Time of first packet
     'pfcp.time_of_last_packet',       # Time of last packet
@@ -51,7 +42,7 @@ MODIFIABLE_FEATURES = {
 }
 
 # ============================================================================
-# FEATURE FAMILIES (per fingerprinting)
+# FEATURE FAMILIES
 # ============================================================================
 
 MODIFIABLE_FEATURE_FAMILIES = {
@@ -111,22 +102,23 @@ MODIFIABLE_FEATURE_FAMILIES = {
 
 
 def is_modifiable(feature: str) -> bool:
-    """Verifica se una feature è modificabile."""
+    """Checks if a feature is editable."""
     if feature not in MODIFIABLE_FEATURES:
-        print(f"[DEBUG] Feature non trovata: {feature}")
+        print(f"Feature not found: {feature}")
     return feature in MODIFIABLE_FEATURES
 
 
 def get_modifiable_families() -> dict:
-    """Restituisce le feature families modificabili."""
+    """Returns the editable feature families."""
     return MODIFIABLE_FEATURE_FAMILIES.copy()
 
 
 def filter_modifiable_features(feature_list: list[str]) -> list[str]:
-    """Filtra mantenendo solo features modificabili."""
+    """Filter keeping only editable features."""
     return [f for f in feature_list if is_modifiable(f)]
 
 
 def get_all_modifiable_features() -> set:
-    """Restituisce set completo delle feature modificabili."""
+    """Returns complete set of editable features."""
+
     return MODIFIABLE_FEATURES.copy()
