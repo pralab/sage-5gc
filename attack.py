@@ -163,25 +163,24 @@ def perform_fingerprinting_modifiable_categorical_clean(
     threshold: float = 1.0,
     in_memory: bool = False,
 ) -> tuple[list[str], list[float]]:
-    """
-    Model fingerprinting con trattamento CATEGORICO UNIVERSALE.
-    - Numeric → swap tra valori esistenti nel training set
-    - Categorical/Binary → swap tra valori esistenti nel training set
+     """
+    Perform feature fingerprinting using a purely categorical swap strategy.
+    Each modifiable feature is perturbed by randomly swapping its values
+    with other valid values observed in the dataset (no noise, no scaling).
 
-    NO noise gaussiano, NO scaling, SOLO SWAP categorico!
+    The sensitivity score for each feature is defined as:
+        impact = % of predictions that change after perturbation.
 
     Parameters
     ----------
-    detection : Detection class
-        Detector con metodo run_predict(df)
-    model : ML model
-        Trained model to fingerprint
-    df : pd.DataFrame
-        Sample dataframe (attack traffic)
-    noise_level : float
-        NON USATO (mantenuto per backward compatibility)
+    detection : Detection*
+        Detection object providing run_predict(df_pp) → (scores, predictions).
+    df : DataFrame
+        Raw attack dataset before preprocessing.
     threshold : float
-        Min impact (%) per considerare feature "effective"
+        Minimum impact (%) to consider a feature "effective".
+    in_memory : bool
+        If True, preprocessing_pipeline_partial uses a temporary directory.
 
     Returns
     -------
@@ -197,7 +196,7 @@ def perform_fingerprinting_modifiable_categorical_clean(
         "🔍 Starting model fingerprinting (CATEGORICAL treatment for ALL features)..."
     )
 
-    # ========== Step 1: Filter modifiable features ==========
+    # Filter modifiable features
     available_features = [f for f in MODIFIABLE_FEATURES if f in df.columns]
     logger.info(
         f"   Available modifiable features: {len(available_features)}/{len(MODIFIABLE_FEATURES)}"
@@ -221,21 +220,19 @@ def perform_fingerprinting_modifiable_categorical_clean(
     # ========== Step 3: Test each feature (CATEGORICAL swap) ==========
     sensitivities: list[float] = []
     tested_features: list[str] = []
-
     for col in available_features:
         tested_features.append(col)
         df_mod = df.copy()
-        # ✅ TRATTAMENTO CATEGORICO UNIVERSALE: swap tra valori unici
+        # Categorical swap
         try:
             uniques = df[col].unique().tolist()
-            # Rimuovi NaN se presenti
-            uniques = [v for v in uniques if pd.notna(v)]
+            uniques = [v for v in uniques if pd.notna(v)]    # drop NaN
             if len(uniques) <= 1:
-                # Feature costante o single-valued → skip
+                # Cannot perturb constant features → zero sensitivity
                 sensitivities.append(0.0)
                 logger.info(f"   Feature '{col}': 0.00% ❌ SKIPPED (constant feature)")
                 continue
-            # Swap: scegli random da valori esistenti
+            # Randomly sample valid categorical values to perturb column
             df_mod[col] = np.random.choice(uniques, size=len(df))
 
         except Exception as e:
@@ -243,7 +240,7 @@ def perform_fingerprinting_modifiable_categorical_clean(
             sensitivities.append(0.0)
             continue
 
-        # Predict con feature perturbata
+        # Predict after perturbation
         try:
             ###### ADD PREPROCESSING STEP ######
             clean_path = os.path.join(
@@ -260,7 +257,7 @@ def perform_fingerprinting_modifiable_categorical_clean(
 
             _, y_pred_mod = detection.run_predict(df_mod_pp)
             y_pred_mod = np.asarray(y_pred_mod)
-            # Compute impact
+            # Compute impact (sensitivity)
             if y_pred_mod.shape != y_pred_baseline.shape:
                 impact = 0.0
             else:
