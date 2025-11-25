@@ -1,8 +1,6 @@
 import json
 import os
 from pathlib import Path
-import shutil
-import tempfile
 
 import joblib
 from joblib import dump
@@ -11,36 +9,7 @@ import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-
-def safe_read_csv(path, **kwargs):
-    """
-    Safely load a CSV file by attempting UTF-8 first, then Latin-1.
-    Supports both full DataFrame loading and chunked (TextFileReader) reading.
-
-    Parameters
-    ----------
-    path : str
-        Path to the CSV file.
-    **kwargs :
-        Additional arguments passed to pandas.read_csv.
-
-    Returns
-    -------
-    DataFrame or TextFileReader
-        Loaded dataset or chunk iterator.
-    """
-    def load_and_preview(encoding):
-        df = pd.read_csv(path, sep=';', low_memory=False, encoding=encoding, **kwargs)
-        # If read_csv returns an iterator (when chunksize is used), consume first chunk to validate
-        if isinstance(df, pd.DataFrame):
-            return df
-        else:
-            first_chunk = next(df)  # preview first chunk
-            return df
-    try:
-        return load_and_preview("utf-8")
-    except UnicodeDecodeError:
-        return load_and_preview("latin-1")
+# region --- PREPROCESSING STEPS ---
 
 
 # ============================================================================
@@ -64,23 +33,39 @@ def enrich_tcp_columns(input_file, output_file, chunksize=100_000):
     None
     """
     write_header = True
-    for chunk in pd.read_csv(input_file, sep=';', chunksize=chunksize, low_memory=False):
-        if 'tcp.options' in chunk.columns:
-            chunk['tcp.options'] = chunk['tcp.options'].fillna('')
+    for chunk in pd.read_csv(
+        input_file, sep=";", chunksize=chunksize, low_memory=False
+    ):
+        if "tcp.options" in chunk.columns:
+            chunk["tcp.options"] = chunk["tcp.options"].fillna("")
             # Binary features for TCP options
-            chunk['tcp_opt_mss'] = chunk['tcp.options'].str.contains('mss', case=False).astype(int)
-            chunk['tcp_opt_ts'] = chunk['tcp.options'].str.contains('timestamp', case=False).astype(int)
-            chunk['tcp_opt_sack'] = chunk['tcp.options'].str.contains('sack', case=False).astype(int)
-            chunk['tcp_opt_wscale'] = chunk['tcp.options'].str.contains('wscale', case=False).astype(int)
-            chunk = chunk.drop(columns=['tcp.options'], errors='ignore')
-        chunk.to_csv(output_file, sep=';', index=False, mode='w' if write_header else 'a', header=write_header)
+            chunk["tcp_opt_mss"] = (
+                chunk["tcp.options"].str.contains("mss", case=False).astype(int)
+            )
+            chunk["tcp_opt_ts"] = (
+                chunk["tcp.options"].str.contains("timestamp", case=False).astype(int)
+            )
+            chunk["tcp_opt_sack"] = (
+                chunk["tcp.options"].str.contains("sack", case=False).astype(int)
+            )
+            chunk["tcp_opt_wscale"] = (
+                chunk["tcp.options"].str.contains("wscale", case=False).astype(int)
+            )
+            chunk = chunk.drop(columns=["tcp.options"], errors="ignore")
+        chunk.to_csv(
+            output_file,
+            sep=";",
+            index=False,
+            mode="w" if write_header else "a",
+            header=write_header,
+        )
         write_header = False
 
 
 # ============================================================================
 # STEP 3: ADVANCED CLEANING
 # ============================================================================
-def drop_columns_chunked(input_file, output_file, is_attack=False, chunksize = 100000):
+def drop_columns_chunked(input_file, output_file, is_attack=False, chunksize=100000):
     """
     Remove low-value packet fields and normalize PFCP hex fields into integers.
 
@@ -112,14 +97,18 @@ def drop_columns_chunked(input_file, output_file, is_attack=False, chunksize = 1
         "frame.number",
     ]
     write_header = True
-    for chunk in pd.read_csv(input_file, sep=';', chunksize=chunksize, low_memory=False):
+    for chunk in pd.read_csv(
+        input_file, sep=";", chunksize=chunksize, low_memory=False
+    ):
         # Drop raw packet-level fields
         cols_to_drop = [col for col in columns_to_delete if col in chunk.columns]
         chunk.drop(columns=cols_to_drop, inplace=True)
         # Normalize PFCP hex-encoded fields
-        if 'pfcp.seid' in chunk.columns:
-            chunk['pfcp.seid'] = chunk['pfcp.seid'].apply(
-                lambda x: int(str(x), 16) if pd.notnull(x) and str(x).startswith("0x") else pd.to_numeric(x, errors='coerce')
+        if "pfcp.seid" in chunk.columns:
+            chunk["pfcp.seid"] = chunk["pfcp.seid"].apply(
+                lambda x: int(str(x), 16)
+                if pd.notnull(x) and str(x).startswith("0x")
+                else pd.to_numeric(x, errors="coerce")
             )
         if "pfcp.f_teid.teid" in chunk.columns:
             chunk["pfcp.f_teid.teid"] = chunk["pfcp.f_teid.teid"].apply(
@@ -140,7 +129,7 @@ def drop_columns_chunked(input_file, output_file, is_attack=False, chunksize = 1
 # ============================================================================
 # STEP 4: IMPUTE NUMERICAL
 # ============================================================================
-def compute_numerical_medians(file_path, chunksize = 100000):
+def compute_numerical_medians(file_path, chunksize=100000):
     """
     Compute median values for all numeric columns (excluding timestamp + metadata).
     Used to fit a SimpleImputer.
@@ -163,8 +152,8 @@ def compute_numerical_medians(file_path, chunksize = 100000):
     numerics = None
     collected_chunks = []
     # Stream and accumulate numeric columns
-    for chunk in pd.read_csv(file_path, sep=';', chunksize=chunksize, low_memory=False):
-        numeric_cols = chunk.select_dtypes(include='number').columns.tolist()
+    for chunk in pd.read_csv(file_path, sep=";", chunksize=chunksize, low_memory=False):
+        numeric_cols = chunk.select_dtypes(include="number").columns.tolist()
         numeric_cols = [col for col in numeric_cols if col not in exclude_cols]
         if numerics is None:
             numerics = numeric_cols
@@ -175,7 +164,7 @@ def compute_numerical_medians(file_path, chunksize = 100000):
     valid_cols = full_df.columns[full_df.notna().any()].tolist()
     full_df = full_df[valid_cols]
     # Fit median imputer
-    imputer = SimpleImputer(strategy='median')
+    imputer = SimpleImputer(strategy="median")
     imputer.fit(full_df)
 
     return valid_cols, imputer
@@ -205,20 +194,31 @@ def impute_file(input_file, output_file, valid_cols, imputer, chunksize=100000):
     exclude_cols = ["ip.opt.time_stamp", "frame.number", "source_file"]
     write_header = True
 
-    for chunk in pd.read_csv(input_file, sep=';', chunksize=chunksize, low_memory=False):
+    for chunk in pd.read_csv(
+        input_file, sep=";", chunksize=chunksize, low_memory=False
+    ):
         # Preserve excluded columns
-        excluded_data = {col: chunk[col] for col in exclude_cols if col in chunk.columns}
+        excluded_data = {
+            col: chunk[col] for col in exclude_cols if col in chunk.columns
+        }
         chunk_numeric = chunk[valid_cols]
-        chunk_imputed = pd.DataFrame(imputer.transform(chunk_numeric), columns=valid_cols, index=chunk.index)
+        chunk_imputed = pd.DataFrame(
+            imputer.transform(chunk_numeric), columns=valid_cols, index=chunk.index
+        )
         # Restore excluded fields (timestamps, file metadata)
         for col, data in excluded_data.items():
             chunk_imputed[col] = data
         # Reattach non-numeric/non-imputed fields
-        other_cols = [c for c in chunk.columns if c not in valid_cols and c not in exclude_cols]
-        final_chunk = pd.concat([
-            chunk_imputed.reset_index(drop=True),
-            chunk[other_cols].reset_index(drop=True)
-        ], axis=1)
+        other_cols = [
+            c for c in chunk.columns if c not in valid_cols and c not in exclude_cols
+        ]
+        final_chunk = pd.concat(
+            [
+                chunk_imputed.reset_index(drop=True),
+                chunk[other_cols].reset_index(drop=True),
+            ],
+            axis=1,
+        )
 
         final_chunk.to_csv(
             output_file,
@@ -273,15 +273,16 @@ def time_conversion(df, col):
     df[col] = pd.to_datetime(
         df[col], format="%b %d, %Y %H:%M:%S.%f %Z", errors="coerce"
     )
-    df[col] = df[col].astype('int64') // 10**9    # convert ns→sec
+    df[col] = df[col].astype("int64") // 10**9  # convert ns→sec
     return df[col]
 
 
 # ============================================================================
 # STEP 6: CORRELATION FILTERING
 # ============================================================================
-def compute_pairwise_correlations(file_path, ref_col="ip.opt.time_stamp",
-                                  special_cols=None):
+def compute_pairwise_correlations(
+    file_path, ref_col="ip.opt.time_stamp", special_cols=None
+):
     """
     Compute Pearson correlations among numeric columns and with a reference label.
 
@@ -306,18 +307,27 @@ def compute_pairwise_correlations(file_path, ref_col="ip.opt.time_stamp",
     if special_cols is None:
         special_cols = ["ip.opt.time_stamp", "frame.number"]
     print(f"Loading sample {file_path}...")
-    df = pd.read_csv(file_path, sep=';', nrows=5000, low_memory=False, encoding='latin-1')
+    df = pd.read_csv(
+        file_path, sep=";", nrows=5000, low_memory=False, encoding="latin-1"
+    )
     # Ensure reference column is numeric
     if ref_col in df.columns:
         df[ref_col] = pd.to_numeric(df[ref_col], errors="coerce").fillna(-1).astype(int)
     # Select numeric columns except known special ones and ports
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    numeric_cols = [c for c in numeric_cols if c not in special_cols +
-                    ['tcp.srcport', 'tcp.dstport', 'udp.srcport', 'udp.dstport']]
+    numeric_cols = [
+        c
+        for c in numeric_cols
+        if c
+        not in special_cols
+        + ["tcp.srcport", "tcp.dstport", "udp.srcport", "udp.dstport"]
+    ]
     # Correlation pairwise Matrix
     corr_matrix = df[numeric_cols].corr(method="pearson")
     # Compute correlation with ref
-    special_corr = df[numeric_cols + [ref_col]].corr(method="pearson")[ref_col].drop(ref_col)
+    special_corr = (
+        df[numeric_cols + [ref_col]].corr(method="pearson")[ref_col].drop(ref_col)
+    )
 
     return numeric_cols, corr_matrix, special_corr
 
@@ -359,20 +369,35 @@ def find_common_correlated_pairs(
             c2 = corr2.loc[col1, col2] if col1 in corr2 and col2 in corr2 else None
             c3 = corr3.loc[col1, col2] if col1 in corr3 and col2 in corr3 else None
             # Keep only if both datasets show correlation ≥ threshold
-            if c2 is not None and c3 is not None and abs(c2) >= threshold and abs(c3) >= threshold:
+            if (
+                c2 is not None
+                and c3 is not None
+                and abs(c2) >= threshold
+                and abs(c3) >= threshold
+            ):
                 correlated_pairs.append((col1, col2, c2, c3))
                 # Compute importance via sum of absolute label correlations
-                corr1 = abs(special_corr2.get(col1, 0)) + abs(special_corr3.get(col1, 0))
-                corr2_val = abs(special_corr2.get(col2, 0)) + abs(special_corr3.get(col2, 0))
+                corr1 = abs(special_corr2.get(col1, 0)) + abs(
+                    special_corr3.get(col1, 0)
+                )
+                corr2_val = abs(special_corr2.get(col2, 0)) + abs(
+                    special_corr3.get(col2, 0)
+                )
                 # Drop the least label-correlated featur
                 if corr1 < corr2_val:
                     cols_to_remove.add(col1)
-                    print(f"Delete {col1} (corr label {corr1:.3f}) vs {col2} (corr label {corr2_val:.3f})")
+                    print(
+                        f"Delete {col1} (corr label {corr1:.3f}) vs {col2} (corr label {corr2_val:.3f})"
+                    )
                 else:
                     cols_to_remove.add(col2)
-                    print(f"Delete {col2} (corr label {corr2_val:.3f}) vs {col1} (corr label {corr1:.3f})")
+                    print(
+                        f"Delete {col2} (corr label {corr2_val:.3f}) vs {col1} (corr label {corr1:.3f})"
+                    )
 
-    print(f"{len(correlated_pairs)} correlated pairs detected in BOTH games(|corr| >= {threshold})")
+    print(
+        f"{len(correlated_pairs)} correlated pairs detected in BOTH games(|corr| >= {threshold})"
+    )
     return cols_to_remove
 
 
@@ -396,11 +421,19 @@ def apply_filter_and_save(input_file, output_file, cols_to_drop, chunksize=50000
     None
     """
     write_header = True
-    for chunk in pd.read_csv(input_file, sep=';', chunksize=chunksize, low_memory=False, encoding='latin-1'):
+    for chunk in pd.read_csv(
+        input_file, sep=";", chunksize=chunksize, low_memory=False, encoding="latin-1"
+    ):
         # Drop correlated features
-        chunk_filtered = chunk.drop(columns=cols_to_drop, errors='ignore')
-        chunk_filtered.to_csv(output_file, sep=';', index=False,
-                              header=write_header, mode='w' if write_header else 'a', encoding='latin-1')
+        chunk_filtered = chunk.drop(columns=cols_to_drop, errors="ignore")
+        chunk_filtered.to_csv(
+            output_file,
+            sep=";",
+            index=False,
+            header=write_header,
+            mode="w" if write_header else "a",
+            encoding="latin-1",
+        )
         write_header = False
 
 
@@ -421,15 +454,19 @@ def compute_pearson_filter_multi(input_dir, output_dir):
     None
     """
     # Compute correlations separately for dataset_2 and dataset_3
-    cols2, corr2, special_corr2 = compute_pairwise_correlations(f"{output_dir}/dataset_2_encoded.csv")
-    cols3, corr3, special_corr3 = compute_pairwise_correlations(f"{output_dir}/dataset_3_encoded.csv")
+    cols2, corr2, special_corr2 = compute_pairwise_correlations(
+        f"{output_dir}/dataset_2_encoded.csv"
+    )
+    cols3, corr3, special_corr3 = compute_pairwise_correlations(
+        f"{output_dir}/dataset_3_encoded.csv"
+    )
     # Only keep columns present in both datasets
     common_cols = sorted(set(cols2).intersection(set(cols3)))
     print(f"Common numeric cols across datasets: {len(common_cols)}")
     # Identify globally removable columns
-    cols_to_remove = find_common_correlated_pairs(corr2, corr3, common_cols,
-                                                  special_corr2, special_corr3,
-                                                  threshold=0.90)
+    cols_to_remove = find_common_correlated_pairs(
+        corr2, corr3, common_cols, special_corr2, special_corr3, threshold=0.90
+    )
     print("Columns removed globally:")
     for col in sorted(cols_to_remove):
         print(f" - {col}")
@@ -438,15 +475,27 @@ def compute_pearson_filter_multi(input_dir, output_dir):
     with open("models_preprocessing/cols_to_remove.json", "w") as f:
         json.dump(list(cols_to_remove), f, indent=2)
     # Apply filtering to datasets 1–3
-    apply_filter_and_save(f"{output_dir}/dataset_1_encoded.csv", f"{output_dir}/dataset_1_filtered.csv", cols_to_remove)
-    apply_filter_and_save(f"{output_dir}/dataset_2_encoded.csv", f"{output_dir}/dataset_2_filtered.csv", cols_to_remove)
-    apply_filter_and_save(f"{output_dir}/dataset_3_encoded.csv", f"{output_dir}/dataset_3_filtered.csv", cols_to_remove)
+    apply_filter_and_save(
+        f"{output_dir}/dataset_1_encoded.csv",
+        f"{output_dir}/dataset_1_filtered.csv",
+        cols_to_remove,
+    )
+    apply_filter_and_save(
+        f"{output_dir}/dataset_2_encoded.csv",
+        f"{output_dir}/dataset_2_filtered.csv",
+        cols_to_remove,
+    )
+    apply_filter_and_save(
+        f"{output_dir}/dataset_3_encoded.csv",
+        f"{output_dir}/dataset_3_filtered.csv",
+        cols_to_remove,
+    )
 
 
 # ============================================================================
 # STEP 7: Z-SCORE NORMALIZATION
 # ============================================================================
-def fit_scaler_on_file(file_in, exclude_cols=None, chunksize=50000, sep=';'):
+def fit_scaler_on_file(file_in, exclude_cols=None, chunksize=50000, sep=";"):
     """
     Fit a StandardScaler using streaming (partial_fit) over a full CSV.
 
@@ -481,7 +530,15 @@ def fit_scaler_on_file(file_in, exclude_cols=None, chunksize=50000, sep=';'):
     return scaler, columns_to_scale
 
 
-def transform_file_with_scaler(file_in, file_out, scaler, columns_to_scale, exclude_cols=None, chunksize=50000, sep=';'):
+def transform_file_with_scaler(
+    file_in,
+    file_out,
+    scaler,
+    columns_to_scale,
+    exclude_cols=None,
+    chunksize=50000,
+    sep=";",
+):
     """
     Apply Z-score normalization to a CSV using chunked transformation.
 
@@ -510,9 +567,13 @@ def transform_file_with_scaler(file_in, file_out, scaler, columns_to_scale, excl
     for chunk in pd.read_csv(file_in, chunksize=chunksize, sep=sep):
         # Scale numerical subset
         chunk_to_scale = chunk[columns_to_scale].fillna(0).astype(float)
-        scaled = pd.DataFrame(scaler.transform(chunk_to_scale), columns=columns_to_scale, index=chunk.index)
+        scaled = pd.DataFrame(
+            scaler.transform(chunk_to_scale),
+            columns=columns_to_scale,
+            index=chunk.index,
+        )
         # Restore excluded fields unchanged
-        for col in (exclude_cols or []):
+        for col in exclude_cols or []:
             if col in chunk.columns:
                 scaled[col] = chunk[col].values
         scaled.to_csv(
@@ -525,10 +586,38 @@ def transform_file_with_scaler(file_in, file_out, scaler, columns_to_scale, excl
         write_header = False
 
 
-# ============================================================================
-# FULL PREPROCESSING PIPELINE
-# ============================================================================
-def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datasets_from_preprocessing"):
+# endregion --- PREPROCESSING STEPS ---
+
+
+def read_csv(path: str | Path) -> pd.DataFrame:
+    """
+    Safely load a CSV file by attempting UTF-8 first, then Latin-1.
+    Supports both full DataFrame loading and chunked (TextFileReader) reading.
+
+    Parameters
+    ----------
+    path : str | Path
+        Path to the CSV file.
+
+    Returns
+    -------
+    DataFrame or TextFileReader
+        Loaded dataset or chunk iterator.
+    """
+
+    def load_and_preview(encoding):
+        df = pd.read_csv(path, sep=";", low_memory=False, encoding=encoding)
+        return df
+
+    try:
+        return load_and_preview("utf-8")
+    except UnicodeDecodeError:
+        return load_and_preview("latin-1")
+
+
+def preprocessing_pipeline(
+    input_dir="cleaned_dataset", output_dir="final_datasets_from_preprocessing"
+):
     """
     Run the complete preprocessing pipeline on datasets 1, 2, and 3.
     Includes TCP parsing, column dropping, imputation, encoding,
@@ -574,11 +663,30 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
     )
 
     # Step 4: IMPUTE NUMERICAL
-    saine_cols, saine_imputer = compute_numerical_medians(f"{output_dir}/dataset_1_drop.csv")
-    impute_file(f"{output_dir}/dataset_1_drop.csv", f"{output_dir}/dataset_1_imputed.csv", saine_cols, saine_imputer)
-    attack_cols, attack_imputer = compute_numerical_medians(f"{output_dir}/dataset_2_drop.csv")
-    impute_file(f"{output_dir}/dataset_2_drop.csv", f"{output_dir}/dataset_2_imputed.csv", attack_cols, attack_imputer)
-    impute_file(f"{output_dir}/dataset_3_drop.csv", f"{output_dir}/dataset_3_imputed.csv", attack_cols, attack_imputer)
+    saine_cols, saine_imputer = compute_numerical_medians(
+        f"{output_dir}/dataset_1_drop.csv"
+    )
+    impute_file(
+        f"{output_dir}/dataset_1_drop.csv",
+        f"{output_dir}/dataset_1_imputed.csv",
+        saine_cols,
+        saine_imputer,
+    )
+    attack_cols, attack_imputer = compute_numerical_medians(
+        f"{output_dir}/dataset_2_drop.csv"
+    )
+    impute_file(
+        f"{output_dir}/dataset_2_drop.csv",
+        f"{output_dir}/dataset_2_imputed.csv",
+        attack_cols,
+        attack_imputer,
+    )
+    impute_file(
+        f"{output_dir}/dataset_3_drop.csv",
+        f"{output_dir}/dataset_3_imputed.csv",
+        attack_cols,
+        attack_imputer,
+    )
     # Save imputation models
     os.makedirs("models_preprocessing", exist_ok=True)
     dump(saine_imputer, "models_preprocessing/imputer_saine.pkl")
@@ -617,25 +725,38 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
         "pfcp.recovery_time_stamp",
     ]
 
-    special_columns = ['ip.opt.time_stamp']
+    special_columns = ["ip.opt.time_stamp"]
     # Load imputed datasets into memory (only once)
-    df_attack = pd.read_csv(f"{output_dir}/dataset_2_imputed.csv", sep=';', low_memory=False)
-    df_saine = pd.read_csv(f"{output_dir}/dataset_1_imputed.csv", sep=';', low_memory=False)
-    df_attack2 = pd.read_csv(f"{output_dir}/dataset_3_imputed.csv", sep=';', low_memory=False)
+    df_attack = pd.read_csv(
+        f"{output_dir}/dataset_2_imputed.csv", sep=";", low_memory=False
+    )
+    df_saine = pd.read_csv(
+        f"{output_dir}/dataset_1_imputed.csv", sep=";", low_memory=False
+    )
+    df_attack2 = pd.read_csv(
+        f"{output_dir}/dataset_3_imputed.csv", sep=";", low_memory=False
+    )
     # Collect object columns
-    non_num_attack = df_attack.select_dtypes(include=['object']).columns.tolist()
-    non_num_saine = df_saine.select_dtypes(include=['object']).columns.tolist()
-    non_num_attack2 = df_attack2.select_dtypes(include=['object']).columns.tolist()
+    non_num_attack = df_attack.select_dtypes(include=["object"]).columns.tolist()
+    non_num_saine = df_saine.select_dtypes(include=["object"]).columns.tolist()
+    non_num_attack2 = df_attack2.select_dtypes(include=["object"]).columns.tolist()
 
-    non_num_cols = sorted(set(non_num_attack).union(set(non_num_saine)).union(set(non_num_attack2)))
-   # Remove frequency-encoded, special, and time columns
-    non_num_cols = [col for col in non_num_cols if
-                    col not in freq_cols and col not in special_columns and col not in time_columns]
+    non_num_cols = sorted(
+        set(non_num_attack).union(set(non_num_saine)).union(set(non_num_attack2))
+    )
+    # Remove frequency-encoded, special, and time columns
+    non_num_cols = [
+        col
+        for col in non_num_cols
+        if col not in freq_cols
+        and col not in special_columns
+        and col not in time_columns
+    ]
     # Convert "fake numeric" object columns into numeric types
     fake_num_cols = []
     for col in list(non_num_cols):
         try:
-            converted = pd.to_numeric(df_attack[col], errors='coerce')
+            converted = pd.to_numeric(df_attack[col], errors="coerce")
             # keep only if numeric in practice
             if converted.notna().sum() > 0 and converted.nunique() > 1:
                 fake_num_cols.append(col)
@@ -661,10 +782,18 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
     with open("models_preprocessing/non_num_cols.json", "w") as f:
         json.dump(non_num_cols, f, indent=2)
     # Cleanup
-    del non_num_attack, non_num_saine, non_num_attack2, df_attack_cat, df_saine_cat, df_attack2_cat, df_cat_all
+    del (
+        non_num_attack,
+        non_num_saine,
+        non_num_attack2,
+        df_attack_cat,
+        df_saine_cat,
+        df_attack2_cat,
+        df_cat_all,
+    )
 
     # ENCODING LOOP FOR (attack, saine, attack2)
-    data_frames = ['df_attack', 'df_saine', 'df_attack2']
+    data_frames = ["df_attack", "df_saine", "df_attack2"]
     for data_frame in data_frames:
         if data_frame == "df_attack":
             df = df_attack
@@ -693,7 +822,13 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
                 print(f"    {data_frame}: {col}")
                 df[col] = time_conversion(df, col)
         df_time_columns = df[[c for c in time_columns if c in df.columns]]
-        df = df[[col for col in df.columns if col not in freq_cols and col not in time_columns]]
+        df = df[
+            [
+                col
+                for col in df.columns
+                if col not in freq_cols and col not in time_columns
+            ]
+        ]
 
         df[non_num_cols] = df[non_num_cols].fillna("NaN").astype(str)
         df_encoded = pd.DataFrame(
@@ -703,10 +838,10 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
         # Drop categorical original columns
         df = df.drop(columns=non_num_cols).reset_index(drop=True)
         # TEMP SAVE PARTS (merged later in chunks)
-        df.to_csv('df_main.csv', sep=';', index=False)
-        df_freq_cols.to_csv('df_freq.csv', sep=';', index=False)
-        df_encoded.to_csv('df_encoded.csv', sep=';', index=False)
-        df_time_columns.to_csv('df_time_columns.csv', sep=';', index=False)
+        df.to_csv("df_main.csv", sep=";", index=False)
+        df_freq_cols.to_csv("df_freq.csv", sep=";", index=False)
+        df_encoded.to_csv("df_encoded.csv", sep=";", index=False)
+        df_time_columns.to_csv("df_time_columns.csv", sep=";", index=False)
 
         del df, df_freq_cols, df_encoded, df_time_columns
         # MERGE IN CHUNKS
@@ -716,7 +851,7 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
                 timestamp_col.to_csv("df_timestamp.csv", sep=";", index=False)
             header_written = False
             # Merge df_main + freq + onehot + timestamp + time
-            with open(f"{output_dir}/dataset_2_encoded.csv", 'w') as f_out:
+            with open(f"{output_dir}/dataset_2_encoded.csv", "w") as f_out:
                 for parts in zip(
                     pd.read_csv("df_main.csv", sep=";", chunksize=chunk_size),
                     pd.read_csv("df_freq.csv", sep=";", chunksize=chunk_size),
@@ -769,8 +904,13 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
                     )
                     header_written = True
         # Clean temporary parts
-        for temp_file in ['df_main.csv', 'df_freq.csv', 'df_encoded.csv',
-                          'df_timestamp.csv', 'df_time_columns.csv']:
+        for temp_file in [
+            "df_main.csv",
+            "df_freq.csv",
+            "df_encoded.csv",
+            "df_timestamp.csv",
+            "df_time_columns.csv",
+        ]:
             try:
                 os.remove(temp_file)
             except FileNotFoundError:
@@ -779,9 +919,9 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
     # Step 6: CORRELATION FILTERING
     compute_pearson_filter_multi(input_dir, output_dir)
     # Save common columns for model consistency
-    df1 = pd.read_csv(f"{output_dir}/dataset_1_filtered.csv", sep=';', nrows=1)
-    df2 = pd.read_csv(f"{output_dir}/dataset_2_filtered.csv", sep=';', nrows=1)
-    df3 = pd.read_csv(f"{output_dir}/dataset_3_filtered.csv", sep=';', nrows=1)
+    df1 = pd.read_csv(f"{output_dir}/dataset_1_filtered.csv", sep=";", nrows=1)
+    df2 = pd.read_csv(f"{output_dir}/dataset_2_filtered.csv", sep=";", nrows=1)
+    df3 = pd.read_csv(f"{output_dir}/dataset_3_filtered.csv", sep=";", nrows=1)
     common_filtered_cols = list(set(df1.columns) & set(df2.columns) & set(df3.columns))
     with open("models_preprocessing/common_filtered_cols.json", "w") as f:
         json.dump(common_filtered_cols, f, indent=2)
@@ -829,16 +969,13 @@ def preprocessing_pipeline(input_dir="cleaned_dataset", output_dir="final_datase
     )
 
 
-# ============================================================================
-# PARTIAL PIPELINE FOR SINGLE-DATASET PROCESSING
-# ============================================================================
-def preprocessing_pipeline_partial(
+def preprocessing_pipeline_single_dataset(
     output_dir: str,
     dataset_name: str,
     input_file: str | None = None,
     df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-     """
+    """
     Apply the same preprocessing pipeline as the full version but only to
     a single dataset. Can run from a DataFrame or from a CSV path.
 
@@ -852,28 +989,20 @@ def preprocessing_pipeline_partial(
         Prefix used for naming intermediate files.
     df : DataFrame or None
         Input dataframe (optional).
-    in_memory : bool
-        If True, pipeline writes into a temporary directory.
 
     Returns
     -------
     DataFrame
         Fully preprocessed dataset.
     """
-    temp_dir = None
-    if in_memory:
-        # Use a temporary folder during preprocessing
-        temp_dir = tempfile.mkdtemp(prefix="preproc_partial_")
-        work_dir = temp_dir
-    else:
-        os.makedirs(output_dir, exist_ok=True)
-        work_dir = output_dir
+    os.makedirs(output_dir, exist_ok=True)
+    work_dir = output_dir
 
     # === STEP 1: LOAD DATA ===
     if df is None:
         if input_file is None:
             raise ValueError("Devi specificare input_file o df.")
-        df = safe_read_csv(input_file)
+        df = read_csv(input_file)
 
     # Save input to temp CSV (ensures compatibility with chunked functions)
     temp_input = os.path.join(work_dir, f"{dataset_name}_input_temp.csv")
@@ -889,17 +1018,20 @@ def preprocessing_pipeline_partial(
     drop_columns_chunked(tcp_path, drop_path, is_attack=True)
 
     # === STEP 4: IMPUTE NUMERICAL ===
-    imputer = joblib.load("preprocessing/models_preprocessing/imputer_attack.pkl")
-    with open("preprocessing/models_preprocessing/attack_cols.json") as f:
+    imputer = joblib.load(
+        Path(__file__).parent / "models_preprocessing/imputer_attack.pkl"
+    )
+    with open(Path(__file__).parent / "models_preprocessing/attack_cols.json") as f:
         valid_cols = json.load(f)
     imputed_path = os.path.join(work_dir, f"{dataset_name}_imputed.csv")
     impute_file(drop_path, imputed_path, valid_cols, imputer)
+
     # === STEP 5: ENCODING ===
-    encoder = joblib.load("preprocessing/models_preprocessing/encoder.pkl")
-    with open("preprocessing/models_preprocessing/non_num_cols.json") as f:
+    encoder = joblib.load(Path(__file__).parent / "models_preprocessing/encoder.pkl")
+    with open(Path(__file__).parent / "models_preprocessing/non_num_cols.json") as f:
         non_num_cols = json.load(f)
 
-    df = safe_read_csv(imputed_path)
+    df = read_csv(imputed_path)
     freq_cols = [
         "ip.src_host",
         "ip.dst_host",
@@ -955,27 +1087,23 @@ def preprocessing_pipeline_partial(
     encoded_path = os.path.join(work_dir, f"{dataset_name}_encoded.csv")
     # Insert special timestamp column in correct position
     if timestamp_col is not None:
-        if special_columns[0] not in df.columns:
-            df_ref = safe_read_csv("preprocessing/final_datasets_from_preprocessing/dataset_3_encoded.csv", nrows=1)
-            col_order = list(df_ref.columns)
-            insert_pos = (
-                col_order.index(special_columns[0])
-                if special_columns[0] in col_order
-                else len(df.columns)
-            )
-            df.insert(insert_pos, special_columns[0], timestamp_col)
-    df.to_csv(encoded_path, sep=';', index=False)
+        df[special_columns[0]] = timestamp_col
+
+    df.to_csv(encoded_path, sep=";", index=False)
 
     # === STEP 6: CORRELATION FILTERING ===
-    with open("preprocessing/models_preprocessing/cols_to_remove.json") as f:
+    with open(Path(__file__).parent / "models_preprocessing/cols_to_remove.json") as f:
         cols_to_remove = json.load(f)
     filtered_path = os.path.join(work_dir, f"{dataset_name}_filtered.csv")
     apply_filter_and_save(encoded_path, filtered_path, cols_to_remove)
 
     # === STEP 7: Z-SCORE NORMALIZATION ===
-    scaler = joblib.load("preprocessing/models_preprocessing/scaler.pkl")
-    with open("preprocessing/models_preprocessing/columns_to_scale.json") as f:
+    scaler = joblib.load(Path(__file__).parent / "models_preprocessing/scaler.pkl")
+    with open(
+        Path(__file__).parent / "models_preprocessing/columns_to_scale.json"
+    ) as f:
         columns_to_scale = json.load(f)
+
     final_path = os.path.join(work_dir, f"{dataset_name}_final.csv")
     transform_file_with_scaler(
         filtered_path,
@@ -989,18 +1117,7 @@ def preprocessing_pipeline_partial(
 
     if temp_input and os.path.exists(temp_input):
         os.remove(temp_input)
-    final_df = safe_read_csv(final_path)
+    final_df = read_csv(final_path)
     print(f"✅ Dataset preprocessed and saved in: {final_path}")
 
-    if in_memory and temp_dir is not None:
-        # Remove temporary workspace
-        try:
-            shutil.rmtree(temp_dir)
-        except OSError:
-            pass
-
     return final_df
-
-
-
-

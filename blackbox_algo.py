@@ -6,13 +6,14 @@ import nevergrad as ng
 import numpy as np
 import pandas as pd
 
-from preprocessing.preprocessor import preprocessing_pipeline_partial
+from preprocessing.preprocessor import preprocessing_pipeline_single_dataset
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
 
 class BlackBoxAttack:
     """Black-box attack for network traffic classifiers."""
@@ -47,15 +48,15 @@ class BlackBoxAttack:
         baseline_out_dir = self._tmp_dir / "baseline"
         baseline_out_dir.mkdir(parents=True, exist_ok=True)
 
-        baseline_df_pp = preprocessing_pipeline_partial(
+        baseline_df_pp = preprocessing_pipeline_single_dataset(
             df=dataset.copy(), output_dir=str(baseline_out_dir), dataset_name="baseline"
         )
         _, y_pred_baseline = detector.run_predict(baseline_df_pp)
         y_pred_baseline = np.asarray(y_pred_baseline)
 
-        # --------------------------------------
+        # --------------------------
         # [Step 2] Set up optimizer
-        # --------------------------------------
+        # --------------------------
         self._optimizer_cls = ng.optimizers.EvolutionStrategy(
             recombination_ratio=0.9,
             popsize=20,
@@ -67,7 +68,7 @@ class BlackBoxAttack:
 
         # --------------------
         # [Step 3] Run attack
-        # -------------------
+        # --------------------
         for idx in range(self._query_budget):
             x = self._optimizer.ask()
             x_adv = self._apply_modifications(sample, x.value)
@@ -85,31 +86,30 @@ class BlackBoxAttack:
         logger.info(f"Best params: {best_params}")
         logger.info(f"Best loss: {best_loss}")
 
-
-
     def _apply_modifications(
         self, sample: pd.Series, params: Dict[str, int]
     ) -> pd.Series:
         for feature, value in params.items():
-            key = feature.replace("_", ".", count = 1)
+            key = feature.replace("_", ".", 1)
             sample[key] = value
 
         # TODO: Recompute ip.dsfield from ip.dsfield.dscp
 
         return sample
 
-    def _compute_loss(self, idx_sample: int, x_adv: pd.Series, dataset: pd.DataFrame) -> float:
+    def _compute_loss(
+        self, idx_sample: int, x_adv: pd.Series, dataset: pd.DataFrame, detector: object
+    ) -> float:
         adv_ds = dataset.copy()
         adv_ds.loc[idx_sample] = x_adv
 
         adv_out_dir = self._tmp_dir / "adv"
         adv_out_dir.mkdir(parents=True, exist_ok=True)
 
-        adv_df_pp = preprocessing_pipeline_partial(
+        adv_df_pp = preprocessing_pipeline_single_dataset(
             df=adv_ds, output_dir=str(adv_out_dir), dataset_name="adv"
         )
-
-
+        detector.run_predict(adv_df_pp)
 
     def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
         base_param = ng.p.Dict(
@@ -145,32 +145,33 @@ class BlackBoxAttack:
             pfcp_f_teid_flags_v6=ng.p.Choice([0, 1]),
         )
 
-        tcp_param = ng.p.Dict(
-            **base_param,
-            tcp_srcport=ng.p.Scalar(lower=0, upper=65000).set_integer_casting(),
-            tcp_seq_raw=ng.p.Scalar(lower=0, upper=2**32 - 1).set_integer_casting(),
-            tcp_ack_raw=ng.p.Scalar(lower=0, upper=2**32 - 1).set_integer_casting(),
-            tcp_flags_urg=ng.p.Choice([0, 1]),
-            tcp_flags_ack=ng.p.Choice([0, 1]),
-            tcp_flags_psh=ng.p.Choice([0, 1]),
-            tcp_flags_rst=ng.p.Choice([0, 1]),
-            tcp_flags_syn=ng.p.Choice([0, 1]),
-            tcp_flags_fin=ng.p.Choice([0, 1]),
-            tcp_options_timestamp_tsval=ng.p.Scalar(
-                lower=0, upper=2**32 - 1
-            ).set_integer_casting(),
-            tcp_options_timestamp_tsecr=ng.p.Scalar(
-                lower=0, upper=2**32 - 1
-            ).set_integer_casting(),
-            tcp_window_size_value=ng.p.Scalar(
-                lower=0, upper=2**16 - 1
-            ).set_integer_casting(),
-        )
-
-        udp_param = ng.p.Dict(
-            **base_param,
-            udp_srcport=ng.p.Scalar(lower=0, upper=65000).set_integer_casting(),
-        )
+        if is_tcp:
+            tcp_param = ng.p.Dict(
+                **base_param,
+                tcp_srcport=ng.p.Scalar(lower=0, upper=65000).set_integer_casting(),
+                tcp_seq_raw=ng.p.Scalar(lower=0, upper=2**32 - 1).set_integer_casting(),
+                tcp_ack_raw=ng.p.Scalar(lower=0, upper=2**32 - 1).set_integer_casting(),
+                tcp_flags_urg=ng.p.Choice([0, 1]),
+                tcp_flags_ack=ng.p.Choice([0, 1]),
+                tcp_flags_psh=ng.p.Choice([0, 1]),
+                tcp_flags_rst=ng.p.Choice([0, 1]),
+                tcp_flags_syn=ng.p.Choice([0, 1]),
+                tcp_flags_fin=ng.p.Choice([0, 1]),
+                tcp_options_timestamp_tsval=ng.p.Scalar(
+                    lower=0, upper=2**32 - 1
+                ).set_integer_casting(),
+                tcp_options_timestamp_tsecr=ng.p.Scalar(
+                    lower=0, upper=2**32 - 1
+                ).set_integer_casting(),
+                tcp_window_size_value=ng.p.Scalar(
+                    lower=0, upper=2**16 - 1
+                ).set_integer_casting(),
+            )
+        else:
+            udp_param = ng.p.Dict(
+                **base_param,
+                udp_srcport=ng.p.Scalar(lower=0, upper=65000).set_integer_casting(),
+            )
 
         return self._optimizer_cls(
             tcp_param if is_tcp else udp_param, budget=self._query_budget
@@ -188,7 +189,6 @@ if __name__ == "__main__":
 
     bb = BlackBoxAttack()
     bb.run(1, ds, knn_det, query_budget=100)
-
 
 
 # def blackbox_attack():
