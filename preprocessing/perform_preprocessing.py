@@ -19,7 +19,7 @@ if __name__ == "__main__":
         f"{INPUT_DIR}/dataset_3_cleaned.csv"
     ]
 
-    # Check esistenza
+    # Check existence
     missing = [p for p in cleaned_paths if not Path(p).exists()]
     if missing:
         print("❌ ERROR: Missing input files:")
@@ -27,7 +27,7 @@ if __name__ == "__main__":
             print(f"   - {p}")
         exit(1)
 
-    # Esegui preprocessing
+    # Run preprocessing
     preprocessing_pipeline(
         input_dir=INPUT_DIR,
         output_dir=OUTPUT_DIR
