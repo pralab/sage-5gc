@@ -115,9 +115,20 @@ class BlackBoxAttack:
 
             if key == "ip.id":
                 adv_sample[key] = hex(value)
+            if key == "ip.flags.df":
+                adv_sample[key] = value
+                # Modify the corresponding bit in ip.flags
+                adv_sample["ip.flags"] = hex(
+                    (adv_sample["ip.flags"] & ~0x02) | ((value & 0x01) << 1)
+                )
+            if key == "ip.dsfield.dscp":
+                adv_sample[key] = value
+                # Modify the corresponding bits in ip.dsfield
+                adv_sample["ip.dsfield"] = hex(
+                    (adv_sample["ip.dsfield"] & 0x03) | ((value & 0x3F) << 2)
+                )
             else:
                 adv_sample[key] = value
-            # TODO: Recompute ip.dsfield from ip.dsfield.dscp
 
         return adv_sample
 
