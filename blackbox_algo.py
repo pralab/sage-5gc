@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Dict
 
 import nevergrad as ng
-import numpy as np
 import pandas as pd
 
 from preprocessing.preprocessor import preprocessing_pipeline_single_dataset
@@ -51,8 +50,8 @@ class BlackBoxAttack:
         baseline_df_pp = preprocessing_pipeline_single_dataset(
             df=dataset.copy(), output_dir=str(baseline_out_dir), dataset_name="baseline"
         )
-        _, y_pred_baseline = detector.run_predict(baseline_df_pp)
-        y_pred_baseline = np.asarray(y_pred_baseline)
+        orig_score = detector.get_score(baseline_df_pp, idx_sample)
+        logger.info(f"Original score for sample {idx_sample}: {orig_score}")
 
         # --------------------------
         # [Step 2] Set up optimizer
@@ -72,7 +71,7 @@ class BlackBoxAttack:
         for idx in range(self._query_budget):
             x = self._optimizer.ask()
             x_adv = self._apply_modifications(sample, x.value)
-            loss = self._compute_loss(x_adv, detector)
+            loss = self._compute_loss(idx_sample, x_adv, dataset, detector)
             logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
             self._optimizer.tell(x, loss)
 
@@ -89,27 +88,33 @@ class BlackBoxAttack:
     def _apply_modifications(
         self, sample: pd.Series, params: Dict[str, int]
     ) -> pd.Series:
+        adv_sample = sample.copy()
         for feature, value in params.items():
             key = feature.replace("_", ".", 1)
-            sample[key] = value
 
-        # TODO: Recompute ip.dsfield from ip.dsfield.dscp
+            if key == "ip.id":
+                adv_sample[key] = hex(value)
+            else:
+                adv_sample[key] = value
+            # TODO: Recompute ip.dsfield from ip.dsfield.dscp
 
-        return sample
+        return adv_sample
 
     def _compute_loss(
         self, idx_sample: int, x_adv: pd.Series, dataset: pd.DataFrame, detector: object
     ) -> float:
+        # Create the adversarial dataset including the modified sample
         adv_ds = dataset.copy()
         adv_ds.loc[idx_sample] = x_adv
 
+        # Preprocess the adversarial dataset
         adv_out_dir = self._tmp_dir / "adv"
         adv_out_dir.mkdir(parents=True, exist_ok=True)
-
         adv_df_pp = preprocessing_pipeline_single_dataset(
             df=adv_ds, output_dir=str(adv_out_dir), dataset_name="adv"
         )
-        detector.run_predict(adv_df_pp)
+
+        return detector.get_score(adv_df_pp, idx_sample)
 
     def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
         base_param = ng.p.Dict(
@@ -182,150 +187,15 @@ if __name__ == "__main__":
     from ml_models import DetectionKnn
 
     path = Path(__file__).parent / "data/cleaned_datasets/dataset_3_cleaned.csv"
-    ds = pd.read_csv(path, sep=";", low_memory=False, encoding="utf-8")
+    dataset = pd.read_csv(path, sep=";", low_memory=False, encoding="utf-8")
 
     knn_det = DetectionKnn()
     knn_det.load_model(str(Path(__file__).parent / "trained_models/knn.pkl"))
 
     bb = BlackBoxAttack()
-    bb.run(1, ds, knn_det, query_budget=100)
 
+    for idx, row in dataset.iterrows():
+        if pd.isna(row["ip.opt.time_stamp"]):
+            continue
 
-# def blackbox_attack():
-#     """"""
-
-#     # Cache evaluation of the baseline to avoid repeated preprocessing when
-#     # the optimiser explores the same configuration multiple times
-#     baseline_cache: Dict[Tuple[int, ...], float] = {}
-
-#     def evaluate(**kwargs: int) -> float:
-#         """Objective function to be minimised by Nevergrad.
-
-#         The function constructs a perturbed version of ``df`` according to the
-#         indices provided in ``kwargs``, preprocesses it, and computes the
-#         misclassification rate relative to the baseline predictions.  Since
-#         Nevergrad minimises the objective, we return the *negative* of the
-#         misclassification rate: maximising the error equates to minimising
-#         ``-error``.
-#         """
-#         # Convert the kwargs into a tuple key for caching
-#         param_tuple = tuple(kwargs[f"idx_{feature}"] for feature in modifiable_features)
-#         if param_tuple in baseline_cache:
-#             return baseline_cache[param_tuple]
-
-#         # Create a copy of the dataframe to apply perturbations
-#         df_mod = df.copy()
-#         # Retrieve protocol column values as strings for matching
-#         proto_series = (
-#             df_mod[protocol_column].astype(str)
-#             if protocol_column in df_mod.columns
-#             else pd.Series(["" for _ in range(len(df_mod))])
-#         )
-#         for feature in modifiable_features:
-#             choices = unique_values[feature]
-#             if not choices:
-#                 continue
-#             selected_idx = kwargs[f"idx_{feature}"] % len(choices)
-#             selected_val = choices[selected_idx]
-#             # Determine allowed rows: if protocol constraints exist, only
-#             # perturb rows whose protocol appears in feature_protocols[feature];
-#             # otherwise allow all rows.  Convert protocol values to strings
-#             # for comparison.
-#             if protocol_constraints is not None:
-#                 allowed_protocols = feature_protocols.get(feature, [])
-#                 if allowed_protocols:
-#                     allowed_mask = proto_series.isin(allowed_protocols)
-#                 else:
-#                     # If the feature does not appear in any protocol list,
-#                     # it should not be perturbed
-#                     allowed_mask = pd.Series([False] * len(df_mod))
-#             else:
-#                 allowed_mask = pd.Series([True] * len(df_mod))
-#             # Apply the swap on a fraction of rows within the allowed mask
-#             # determined by noise_level
-#             random_mask = np.random.rand(len(df_mod)) < noise_level
-#             mask = allowed_mask & random_mask
-#             if mask.any():
-#                 df_mod.loc[mask, feature] = selected_val
-
-#         # Preprocess modified data
-#         mod_out_dir = os.path.join(tmp_base, "mod")
-#         os.makedirs(mod_out_dir, exist_ok=True)
-#         df_mod_pp = preprocessing_pipeline_partial(
-#             df=df_mod, output_dir=mod_out_dir, dataset_name="mod"
-#         )
-#         _, y_pred_mod = detection.run_predict(df_mod_pp)
-#         y_pred_mod = np.asarray(y_pred_mod)
-
-#         # Compute misclassification rate relative to baseline
-#         if y_pred_mod.shape != y_pred_baseline.shape:
-#             error = 0.0
-#         else:
-#             error = float(np.mean(y_pred_mod != y_pred_baseline)) * 100.0
-#         # Cache the negative error (because we want to maximise error)
-#         baseline_cache[param_tuple] = -error
-#         return -error
-
-#     # Create optimiser with specified budget
-
-#     # Perform optimisation
-#     recommendation = optimizer.minimize(evaluate)
-
-#     # Retrieve the best parameters and compute improvement
-#     best_params = {
-#         feature: recommendation.kwargs[f"idx_{feature}"]
-#         for feature in modifiable_features
-#     }
-#     best_improvement = -recommendation.loss  # negative of returned loss
-
-#     perturbed_df: Optional[pd.DataFrame] = None
-#     if return_perturbed:
-#         # Reconstruct the perturbed dataframe using the best parameters
-#         df_mod = df.copy()
-#         proto_series = (
-#             df_mod[protocol_column].astype(str)
-#             if protocol_column in df_mod.columns
-#             else pd.Series(["" for _ in range(len(df_mod))])
-#         )
-#         for feature in modifiable_features:
-#             choices = unique_values[feature]
-#             if not choices:
-#                 continue
-#             selected_idx = best_params[feature] % len(choices)
-#             selected_val = choices[selected_idx]
-#             if protocol_constraints is not None:
-#                 allowed_protocols = feature_protocols.get(feature, [])
-#                 if allowed_protocols:
-#                     allowed_mask = proto_series.isin(allowed_protocols)
-#                 else:
-#                     allowed_mask = pd.Series([False] * len(df_mod))
-#             else:
-#                 allowed_mask = pd.Series([True] * len(df_mod))
-#             random_mask = np.random.rand(len(df_mod)) < noise_level
-#             mask = allowed_mask & random_mask
-#             if mask.any():
-#                 df_mod.loc[mask, feature] = selected_val
-#         perturbed_df = df_mod
-
-#     # Clean up temporary directories if they were created by the function
-#     if tmp_dir is None:
-#         # Remove only the temporary directory created by this run
-#         try:
-#             # Recursively remove contents of tmp_base
-#             for root, dirs, files in os.walk(tmp_base, topdown=False):
-#                 for name in files:
-#                     try:
-#                         os.remove(os.path.join(root, name))
-#                     except FileNotFoundError:
-#                         pass
-#                 for name in dirs:
-#                     try:
-#                         os.rmdir(os.path.join(root, name))
-#                     except OSError:
-#                         pass
-#             os.rmdir(tmp_base)
-#         except OSError:
-#             # If directory cannot be removed, leave it in place
-#             pass
-
-#     return best_params, best_improvement, perturbed_df
+        bb.run(idx, dataset.copy(), knn_det, query_budget=100)

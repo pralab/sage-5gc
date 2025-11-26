@@ -1,12 +1,16 @@
+import logging
+
+from imblearn.over_sampling import SMOTE
+import joblib
 import numpy as np
 import pandas as pd
-from sklearn.neighbors import KNeighborsClassifier
-from imblearn.over_sampling import SMOTE
 from sklearn.metrics import (
-    classification_report, confusion_matrix, balanced_accuracy_score, mean_squared_error
+    balanced_accuracy_score,
+    classification_report,
+    confusion_matrix,
+    mean_squared_error,
 )
-import joblib
-import logging
+from sklearn.neighbors import KNeighborsClassifier
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class DetectionKnn:
     """KNN-based anomaly detector"""
+
     def __init__(self):
         self.model = None
         self.X_train = None
@@ -34,21 +39,21 @@ class DetectionKnn:
             Path to training CSV file.
         """
         dtypes = {}
-        sample = pd.read_csv(df_train_csv, sep=';', nrows=5)
+        sample = pd.read_csv(df_train_csv, sep=";", nrows=5)
         for c in sample.columns:
-            if sample[c].dtype == 'float64':
-                dtypes[c] = 'float32'
-            elif sample[c].dtype == 'int64':
-                dtypes[c] = 'int8'
+            if sample[c].dtype == "float64":
+                dtypes[c] = "float32"
+            elif sample[c].dtype == "int64":
+                dtypes[c] = "int8"
             else:
                 dtypes[c] = sample[c].dtype
-        df = pd.read_csv(df_train_csv, sep=';')
-        df['ip.opt.time_stamp'] = df['ip.opt.time_stamp'].fillna(-1)
+        df = pd.read_csv(df_train_csv, sep=";")
+        df["ip.opt.time_stamp"] = df["ip.opt.time_stamp"].fillna(-1)
         logger.info(f"Df train len : {len(df)}")
         cols = sorted(df.columns)
         df = df[cols]
-        self.X_train = df.drop('ip.opt.time_stamp', axis=1)
-        self.Y_train = df['ip.opt.time_stamp']
+        self.X_train = df.drop("ip.opt.time_stamp", axis=1)
+        self.Y_train = df["ip.opt.time_stamp"]
         logger.info(df.describe())
         logger.info(len(self.X_train.columns))
         logger.debug(self.X_train.columns)
@@ -62,14 +67,14 @@ class DetectionKnn:
         df_test_csv : str
             Path to test CSV file.
         """
-        df = pd.read_csv(df_test_csv, sep=';')
-        df['ip.opt.time_stamp'] = df['ip.opt.time_stamp'].fillna(-1)
+        df = pd.read_csv(df_test_csv, sep=";")
+        df["ip.opt.time_stamp"] = df["ip.opt.time_stamp"].fillna(-1)
         logger.info(f"Df test len: {len(df)}")
         logger.info(df.describe())
         cols = sorted(df.columns)
         df = df[cols]
-        self.X_test = df.drop('ip.opt.time_stamp', axis=1)
-        self.Y_test = df['ip.opt.time_stamp']
+        self.X_test = df.drop("ip.opt.time_stamp", axis=1)
+        self.Y_test = df["ip.opt.time_stamp"]
         logger.info(len(self.X_test.columns))
         logger.debug(self.X_test.columns)
 
@@ -80,8 +85,7 @@ class DetectionKnn:
         if self.X_train is None:
             raise ValueError("Load training data first")
         self.model = KNeighborsClassifier(
-            algorithm='auto', metric='manhattan',
-            n_neighbors=3, p=1, weights='uniform'
+            algorithm="auto", metric="manhattan", n_neighbors=3, p=1, weights="uniform"
         )
         sm = SMOTE(random_state=42)
         X_res, y_res = sm.fit_resample(self.X_train, self.Y_train)
@@ -103,7 +107,7 @@ class DetectionKnn:
             raise ValueError("Load test data first")
         return self.model.predict(self.X_test)
 
-    def save_model(self, path='knn.pkl'):
+    def save_model(self, path="knn.pkl"):
         """
         Save KNN model.
 
@@ -115,7 +119,7 @@ class DetectionKnn:
         joblib.dump(self.model, path)
         logger.info(f"✓ Saved to {path}")
 
-    def load_model(self, path='knn.pkl'):
+    def load_model(self, path="knn.pkl"):
         """
         Load KNN model.
 
@@ -142,7 +146,7 @@ class DetectionKnn:
         y_pred_test = self.model.predict(self.X_test)
         return (
             mean_squared_error(self.Y_train, y_pred_train),
-            mean_squared_error(self.Y_test, y_pred_test)
+            mean_squared_error(self.Y_test, y_pred_test),
         )
 
     def run_predict(self, df_test: pd.DataFrame) -> tuple:
@@ -162,11 +166,11 @@ class DetectionKnn:
         sorted_columns = sorted(df_test.columns)
         df_sorted = df_test[sorted_columns].copy()
         # Fill NaN with -1
-        df_sorted['ip.opt.time_stamp'] = df_sorted['ip.opt.time_stamp'].fillna(-1)
+        df_sorted["ip.opt.time_stamp"] = df_sorted["ip.opt.time_stamp"].fillna(-1)
         # Features
-        X_test = df_sorted.drop('ip.opt.time_stamp', axis=1)
+        X_test = df_sorted.drop("ip.opt.time_stamp", axis=1)
         # Labels
-        y_test = df_sorted['ip.opt.time_stamp'].values
+        y_test = df_sorted["ip.opt.time_stamp"].values
         # Predict
         y_pred = self.model.predict(X_test)
 
@@ -192,9 +196,9 @@ class DetectionKnn:
         # Sort columns
         sorted_columns = sorted(df_pp.columns)
         df_sorted = df_pp[sorted_columns].copy()
-        if 'ip.opt.time_stamp' in df_sorted.columns:
-            df_sorted['ip.opt.time_stamp'] = df_sorted['ip.opt.time_stamp'].fillna(-1)
-            X = df_sorted.drop('ip.opt.time_stamp', axis=1)
+        if "ip.opt.time_stamp" in df_sorted.columns:
+            df_sorted["ip.opt.time_stamp"] = df_sorted["ip.opt.time_stamp"].fillna(-1)
+            X = df_sorted.drop("ip.opt.time_stamp", axis=1)
         else:
             X = df_sorted
         proba = self.model.predict_proba(X)[sample_idx]
@@ -203,9 +207,7 @@ class DetectionKnn:
         try:
             idx_norm = np.where(classes == -1)[0][0]
         except IndexError:
-            raise RuntimeError(
-                "Class -1 not present in model.classes_. "
-            )
+            raise RuntimeError("Class -1 not present in model.classes_. ")
 
         return float(proba[idx_norm])
 
@@ -232,7 +234,9 @@ def evaluate_predictions_knn(y_true, y_pred):
     logger.info(f"Labels: {labels}")
     logger.info(cm)
     logger.info("\nClassification Report:")
-    logger.info(classification_report(y_true, y_pred, labels=labels, digits=4, zero_division=0))
+    logger.info(
+        classification_report(y_true, y_pred, labels=labels, digits=4, zero_division=0)
+    )
     bal_acc = balanced_accuracy_score(y_true, y_pred)
     logger.info(f"Balanced accuracy: {bal_acc}")
     return cm
@@ -263,4 +267,3 @@ def run_knn(detector: DetectionKnn, test_csv: str):
         logger.info(f"MSE Train: {train_mse:.6f} | MSE Test: {test_mse:.6f}")
     except Exception:
         pass
-
