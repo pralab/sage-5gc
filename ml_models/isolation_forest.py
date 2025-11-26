@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 
 matplotlib.use("TkAgg")
 import logging
+from typing import Any, Literal
 
 import joblib
 import numpy as np
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 class DetectionIsolationForest:
     """Isolation Forest–based anomaly detector."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize base attributes"""
         self.model = None
         self.X_train = None
@@ -40,7 +41,7 @@ class DetectionIsolationForest:
         self.df_test = None
         self.best_threshold = None
 
-    def load_train_data(self, df_train_csv):
+    def load_train_data(self, df_train_csv: str) -> None:
         """
         Load training dataset and pre-process columns.
 
@@ -72,7 +73,7 @@ class DetectionIsolationForest:
         logger.info(len(self.X_train.columns))
         logger.debug(self.X_train.columns)
 
-    def load_test_data(self, df_test_csv):
+    def load_test_data(self, df_test_csv: str) -> None:
         """
         Load test dataset and create labels.
 
@@ -106,9 +107,9 @@ class DetectionIsolationForest:
         logger.info(len(self.X_test.columns))
         logger.debug(self.X_test.columns)
 
-    def train(self):
+    def train(self) -> None:
         """
-        Train IsolationForest model.
+        Perform model training.
 
         Raises
         ------
@@ -131,9 +132,9 @@ class DetectionIsolationForest:
         self.model.fit(self.X_train)
         logger.info("✓ Model trained")
 
-    def predict(self):
+    def predict(self) -> np.ndarray:
         """
-        Predict anomaly labels using raw IsolationForest.
+        Perform prediction on the test set.
 
         Returns
         -------
@@ -147,21 +148,39 @@ class DetectionIsolationForest:
 
         return self.model.predict(self.X_test)
 
-    def tag_anomalies(self, row):
+    def tag_anomalies(self, row: pd.Series) -> Literal[-1] | Literal[1]:
         """
         Map ip.opt.time_stamp to anomaly class.
+
+        Parameters
+        ----------
+        row : pd.Series
+            Single row representing a single sample.
 
         Returns
         -------
         int
-            -1 for anomaly (timestamp 0–6), 1 otherwise.
+            Value of -1 corrisponding to anomaly, 1 to normal.
         """
         if row["ip.opt.time_stamp"] in range(0, 7):
             return -1  # Anomaly
         else:
             return 1  # Normal
 
-    def classify_anomalies(self, row, prediction):
+    def classify_anomalies(
+        self, row: pd.Series, prediction: bool
+    ) -> (
+        Literal[2]
+        | Literal[3]
+        | Literal[4]
+        | Literal[5]
+        | Literal[6]
+        | Literal[7]
+        | Literal[8]
+        | Literal[9]
+        | Literal[1]
+        | Literal[0]
+    ):
         """
         Map anomalies to multi-class attack types.
 
@@ -170,7 +189,7 @@ class DetectionIsolationForest:
         row : pd.Series
             Test row.
         prediction : bool
-            If True → use predicted label, else ground truth.
+            If True use predicted label, else groundtruth.
 
         Returns
         -------
@@ -218,7 +237,7 @@ class DetectionIsolationForest:
             else:
                 return 1  # Normal
 
-    def save_model(self, path="isolation_forest.pkl"):
+    def save_model(self, path: str = "isolation_forest.pkl") -> None:
         """
         Save trained model and threshold.
 
@@ -228,11 +247,11 @@ class DetectionIsolationForest:
             Output file.
         """
         joblib.dump({"model": self.model, "best_threshold": self.best_threshold}, path)
-        logger.info(f"✓ Saved to {path}")
+        logger.info(f"Saved to {path}")
         if self.best_threshold is not None:
-            logger.info(f"  Best threshold: {self.best_threshold:.6f}")
+            logger.info(f"Best threshold: {self.best_threshold:.6f}")
 
-    def load_model(self, path="isolation_forest.pkl"):
+    def load_model(self, path: str = "isolation_forest.pkl") -> None:
         """
         Load trained model and threshold.
 
@@ -248,13 +267,13 @@ class DetectionIsolationForest:
         else:
             self.model = data
             self.best_threshold = None
-        logger.info(f"✓ Loaded from {path}")
+        logger.info(f"Loaded from {path}")
         if self.best_threshold is not None:
-            logger.info(f"  Best threshold: {self.best_threshold:.6f}")
+            logger.info(f"Best threshold: {self.best_threshold:.6f}")
 
-    def run_predict(self, df_test: pd.DataFrame) -> tuple:
+    def run_predict(self, df_test: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         """
-        Predict using decision_function and optional optimized threshold.
+        Perform prediction using decision_function and optional optimized threshold.
 
         Parameters
         ----------
@@ -263,8 +282,8 @@ class DetectionIsolationForest:
 
         Returns
         -------
-        tuple
-            (y_true, y_pred)
+        tuple[np.ndarray, np.ndarray]
+            Values of true labels and predicted labels.
         """
         # Sort columns
         sorted_columns = sorted(df_test.columns)
@@ -286,41 +305,44 @@ class DetectionIsolationForest:
 
     def get_score(self, df_pp: pd.DataFrame, sample_idx: int) -> float:
         """
-        Continuous anomaly score for black-box attacks.
+        Compute the probability of being an attack for a given sample.
 
         Parameters
         ----------
         df_pp : pd.DataFrame
-            Preprocessed sample batch.
+            Preprocessed DataFrame.
         sample_idx : int
-            Row index to score.
+            Index of the sample.
 
         Returns
         -------
         float
-            decision_function score (higher = more normal).
+            Probability of being an attack.
         """
         sorted_columns = sorted(df_pp.columns)
         df_sorted = df_pp[sorted_columns].copy()
-        X = df_sorted.drop("ip.opt.time_stamp", axis=1, errors="ignore")
-        score = self.model.decision_function(X)[sample_idx]
-        return float(score)
+        X = df_sorted.drop("ip.opt.time_stamp", axis=1, errors="ignore").iloc[
+            [sample_idx]
+        ]
+        return -self.model.decision_function(X)[0]
 
 
-def evaluate_predictions_if(y_true, y_pred):
+def evaluate_predictions_if(
+    y_true: Any, y_pred: Any
+) -> tuple[np.ndarray, float, float, float]:
     """
     Evaluate predictions with standard metrics.
 
     Parameters
     ----------
-    y_true : array-like
+    y_true : Array-like
         Ground-truth labels.
-    y_pred : array-like
+    y_pred : Array-like
         Predicted labels.
 
     Returns
     -------
-    tuple
+    tuple[np.ndarray, float, float, float]
         (cm, precision, recall, f1)
     """
     cm = confusion_matrix(y_true, y_pred, labels=[-1, 1])

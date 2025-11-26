@@ -125,7 +125,7 @@ class DetectionRandomForest:
             Output path.
         """
         joblib.dump(self.model, path)
-        logger.info(f"✓ Saved to {path}")
+        logger.info(f"Saved to {path}")
 
     def load_model(self, path="random_forest.pkl"):
         """
@@ -137,7 +137,7 @@ class DetectionRandomForest:
             Model checkpoint.
         """
         self.model = joblib.load(path)
-        logger.info(f"✓ Loaded from {path}")
+        logger.info(f"Loaded from {path}")
 
     def run_predict(self, df_test: pd.DataFrame) -> tuple:
         """
@@ -166,39 +166,27 @@ class DetectionRandomForest:
 
     def get_score(self, df_pp: pd.DataFrame, sample_idx: int) -> float:
         """
-        Continuous score for black-box attacks.
-        Using probability of normal class (-1).
+        Compute the probability of being an attack for a given sample.
 
         Parameters
         ----------
         df_pp : pd.DataFrame
-            Batch of preprocessed samples.
+            Preprocessed DataFrame.
         sample_idx : int
-            Sample index.
+            Index of the sample.
 
         Returns
         -------
         float
-            Probability of class -1 (higher = more normal).
+            Probability of being an attack.
         """
-        # Sort columns
         sorted_columns = sorted(df_pp.columns)
         df_sorted = df_pp[sorted_columns].copy()
-        if "ip.opt.time_stamp" in df_sorted.columns:
-            df_sorted["ip.opt.time_stamp"] = df_sorted["ip.opt.time_stamp"].fillna(-1)
-            X = df_sorted.drop("ip.opt.time_stamp", axis=1)
-        else:
-            X = df_sorted
+        X = df_sorted.drop("ip.opt.time_stamp", axis=1).iloc[[sample_idx]]
+        proba = self.model.predict_proba(X)[0]
+        idx_norm = list(self.model.classes_).index(-1)
 
-        proba = self.model.predict_proba(X)[sample_idx]
-        classes = self.model.classes_
-
-        try:
-            idx_norm = np.where(classes == -1)[0][0]
-        except IndexError:
-            raise RuntimeError("Class -1 not present in model.classes_. ")
-
-        return float(proba[idx_norm])
+        return 1.0 - proba[idx_norm]
 
 
 def evaluate_predictions_rf(y_true, y_pred):

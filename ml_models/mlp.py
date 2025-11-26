@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import random
 
@@ -39,7 +40,9 @@ torch.backends.cudnn.benchmark = False
 class MLPAutoencoder(nn.Module):
     """Simple MLP-based Autoencoder with symmetrical encoder/decoder."""
 
-    def __init__(self, input_dim: int, latent_dim: int = 8, p_drop: float = 0.1):
+    def __init__(
+        self, input_dim: int, latent_dim: int = 8, p_drop: float = 0.1
+    ) -> None:
         super().__init__()
         logger.debug(f"Initializing Autoencoder with latent_dim={latent_dim}")
         self.encoder = MLP(
@@ -56,7 +59,7 @@ class MLPAutoencoder(nn.Module):
             dropout=p_drop,
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the autoencoder.
 
@@ -345,7 +348,7 @@ class DetectionAutoEncoder:
             },
             path,
         )
-        logger.info(f"✓ Autoencoder saved to {path}")
+        logger.info(f"Saved to {path} - threshold={self.threshold}")
 
     def load_model(self, path: str = "trained_models/autoencoder.pth"):
         """
@@ -370,7 +373,7 @@ class DetectionAutoEncoder:
         ).to(self.device)
         self.model.load_state_dict(ckpt["state_dict"])
         self.model.eval()
-        logger.info(f"✓ Autoencoder loaded from {path} (threshold={self.threshold})")
+        logger.info(f"Loaded from {path} - threshold={self.threshold}")
 
     def run_predict(self, df_test: pd.DataFrame) -> tuple:
         """

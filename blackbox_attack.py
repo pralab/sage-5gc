@@ -29,14 +29,14 @@ class BlackBoxAttack:
 
     def run(
         self,
-        idx_sample: int,
-        dataset: pd.DataFrame,
+        sample_idx: int,
+        df: pd.DataFrame,
         detector: object,
         query_budget: int = 100,
     ) -> None:
         """"""
         self._query_budget = query_budget
-        sample = dataset.iloc[idx_sample]
+        sample = df.iloc[sample_idx]
 
         if sample["ip.proto"] == 1:  # ICMP
             return
@@ -48,10 +48,31 @@ class BlackBoxAttack:
         baseline_out_dir.mkdir(parents=True, exist_ok=True)
 
         baseline_df_pp = preprocessing_pipeline_single_dataset(
-            df=dataset.copy(), output_dir=str(baseline_out_dir), dataset_name="baseline"
+            df=df.copy(), output_dir=str(baseline_out_dir), dataset_name="baseline"
         )
-        orig_score = detector.get_score(baseline_df_pp, idx_sample)
-        logger.info(f"Original score for sample {idx_sample}: {orig_score}")
+        orig_score = detector.get_score(baseline_df_pp, sample_idx)
+        logger.info(f"Original score for sample {sample_idx}: {orig_score}")
+
+        # Early stopping if sample is already classified as benign
+        if orig_score == 0.0:
+            logger.info(
+                f"Sample {sample_idx} is already classified as benign. Skipping."
+            )
+            return
+
+        if hasattr(detector, "best_threshold"):
+            if orig_score < detector.best_threshold:
+                logger.info(
+                    f"Sample {sample_idx} is already classified as benign. Skipping."
+                )
+                return
+
+        if hasattr(detector, "threshold"):
+            if orig_score < detector.threshold:
+                logger.info(
+                    f"Sample {sample_idx} is already classified as benign. Skipping."
+                )
+                return
 
         # --------------------------
         # [Step 2] Set up optimizer
@@ -71,7 +92,7 @@ class BlackBoxAttack:
         for idx in range(self._query_budget):
             x = self._optimizer.ask()
             x_adv = self._apply_modifications(sample, x.value)
-            loss = self._compute_loss(idx_sample, x_adv, dataset, detector)
+            loss = self._compute_loss(sample_idx, x_adv, df, detector)
             logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
             self._optimizer.tell(x, loss)
 
@@ -101,20 +122,20 @@ class BlackBoxAttack:
         return adv_sample
 
     def _compute_loss(
-        self, idx_sample: int, x_adv: pd.Series, dataset: pd.DataFrame, detector: object
+        self, sample_idx: int, x_adv: pd.Series, df: pd.DataFrame, detector: object
     ) -> float:
         # Create the adversarial dataset including the modified sample
-        adv_ds = dataset.copy()
-        adv_ds.loc[idx_sample] = x_adv
+        adv_df = df.copy()
+        adv_df.loc[sample_idx] = x_adv
 
         # Preprocess the adversarial dataset
         adv_out_dir = self._tmp_dir / "adv"
         adv_out_dir.mkdir(parents=True, exist_ok=True)
         adv_df_pp = preprocessing_pipeline_single_dataset(
-            df=adv_ds, output_dir=str(adv_out_dir), dataset_name="adv"
+            df=adv_df, output_dir=str(adv_out_dir), dataset_name="adv"
         )
 
-        return detector.get_score(adv_df_pp, idx_sample)
+        return detector.get_score(adv_df_pp, sample_idx)
 
     def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
         base_param = ng.p.Dict(
@@ -184,13 +205,15 @@ class BlackBoxAttack:
 
 
 if __name__ == "__main__":
-    from ml_models import DetectionKnn
+    from ml_models import DetectionKnn, DetectionRandomForest, DetectionIsolationForest
 
     path = Path(__file__).parent / "data/cleaned_datasets/dataset_3_cleaned.csv"
     dataset = pd.read_csv(path, sep=";", low_memory=False, encoding="utf-8")
 
-    knn_det = DetectionKnn()
-    knn_det.load_model(str(Path(__file__).parent / "trained_models/knn.pkl"))
+    knn_det = DetectionIsolationForest()
+    knn_det.load_model(
+        str(Path(__file__).parent / "trained_models/isolation_forest.pkl")
+    )
 
     bb = BlackBoxAttack()
 

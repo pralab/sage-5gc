@@ -976,24 +976,24 @@ def preprocessing_pipeline_single_dataset(
     df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
-    Apply the same preprocessing pipeline as the full version but only to
-    a single dataset. Can run from a DataFrame or from a CSV path.
+    Apply the preprocessing pipeline to a single dataset, either from a CSV file
+    or a DataFrame.
 
     Parameters
     ----------
-    input_file : str or None
-        Input CSV path (ignored when df is provided).
     output_dir : str
         Output directory for results.
     dataset_name : str
         Prefix used for naming intermediate files.
-    df : DataFrame or None
-        Input dataframe (optional).
+    input_file : str | None
+        Path to input CSV file (optional).
+    df : DataFrame | None
+        Input DataFrame (optional).
 
     Returns
     -------
     DataFrame
-        Fully preprocessed dataset.
+        Preprocessed DataFrame.
     """
     os.makedirs(output_dir, exist_ok=True)
     work_dir = output_dir
@@ -1001,7 +1001,7 @@ def preprocessing_pipeline_single_dataset(
     # === STEP 1: LOAD DATA ===
     if df is None:
         if input_file is None:
-            raise ValueError("Devi specificare input_file o df.")
+            raise ValueError("Either input_file or df must be provided.")
         df = read_csv(input_file)
 
     # Save input to temp CSV (ensures compatibility with chunked functions)
@@ -1117,7 +1117,5 @@ def preprocessing_pipeline_single_dataset(
 
     if temp_input and os.path.exists(temp_input):
         os.remove(temp_input)
-    final_df = read_csv(final_path)
-    print(f"✅ Dataset preprocessed and saved in: {final_path}")
 
-    return final_df
+    return read_csv(final_path)

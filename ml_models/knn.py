@@ -29,7 +29,7 @@ class DetectionKnn:
         self.X_test = None
         self.Y_test = None
 
-    def load_train_data(self, df_train_csv):
+    def load_train_data(self, df_train_csv: str) -> None:
         """
         Load and preprocess the training dataset.
 
@@ -58,7 +58,7 @@ class DetectionKnn:
         logger.info(len(self.X_train.columns))
         logger.debug(self.X_train.columns)
 
-    def load_test_data(self, df_test_csv):
+    def load_test_data(self, df_test_csv: str) -> None:
         """
         Load and preprocess the test dataset.
 
@@ -78,10 +78,8 @@ class DetectionKnn:
         logger.info(len(self.X_test.columns))
         logger.debug(self.X_test.columns)
 
-    def train(self):
-        """
-        Train KNN model with SMOTE oversampling.
-        """
+    def train(self) -> None:
+        """Train KNN model with SMOTE oversampling."""
         if self.X_train is None:
             raise ValueError("Load training data first")
         self.model = KNeighborsClassifier(
@@ -90,11 +88,11 @@ class DetectionKnn:
         sm = SMOTE(random_state=42)
         X_res, y_res = sm.fit_resample(self.X_train, self.Y_train)
         self.model.fit(X_res, y_res)
-        logger.info("✓ KNN trained (SMOTE)")
+        logger.info("KNN trained (SMOTE)")
 
-    def predict(self):
+    def predict(self) -> np.ndarray:
         """
-        Predict labels on the loaded test dataset.
+        Perform prediction on the test set.
 
         Returns
         -------
@@ -107,9 +105,9 @@ class DetectionKnn:
             raise ValueError("Load test data first")
         return self.model.predict(self.X_test)
 
-    def save_model(self, path="knn.pkl"):
+    def save_model(self, path: str = "knn.pkl") -> None:
         """
-        Save KNN model.
+        Save the model.
 
         Parameters
         ----------
@@ -117,28 +115,28 @@ class DetectionKnn:
             Output path.
         """
         joblib.dump(self.model, path)
-        logger.info(f"✓ Saved to {path}")
+        logger.info(f"Saved to {path}")
 
-    def load_model(self, path="knn.pkl"):
+    def load_model(self, path: str = "knn.pkl"):
         """
         Load KNN model.
 
         Parameters
         ----------
         path : str
-            Model checkpoint.
+            Input path.
         """
         self.model = joblib.load(path)
-        logger.info(f"✓ Loaded from {path}")
+        logger.info(f"Loaded from {path}")
 
-    def mse_train_test(self):
+    def mse_train_test(self) -> tuple[float, float]:
         """
         Compute MSE on train and test sets.
 
         Returns
         -------
-        tuple (float, float)
-            (train_mse, test_mse)
+        tuple[float, float]
+            Values of MSE for train and test sets.
         """
         if self.model is None:
             raise ValueError("Trained model is needed!")
@@ -149,9 +147,9 @@ class DetectionKnn:
             mean_squared_error(self.Y_test, y_pred_test),
         )
 
-    def run_predict(self, df_test: pd.DataFrame) -> tuple:
+    def run_predict(self, df_test: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         """
-        Predict.
+        Perform prediction.
 
         Parameters
         ----------
@@ -160,7 +158,8 @@ class DetectionKnn:
 
         Returns
         -------
-        tuple
+        tuple[np.ndarray, np.ndarray]
+            Values of true labels and predicted labels.
         """
         # Sort columns alphabetically
         sorted_columns = sorted(df_test.columns)
@@ -178,41 +177,30 @@ class DetectionKnn:
 
     def get_score(self, df_pp: pd.DataFrame, sample_idx: int) -> float:
         """
-        Continuous score for black-box attacks.
-        Using probability of normal class (-1).
+        Compute the probability of being an attack for a given sample.
 
         Parameters
         ----------
         df_pp : pd.DataFrame
-            Batch of preprocessed samples.
+            Preprocessed DataFrame.
         sample_idx : int
-            Sample index.
+            Index of the sample.
 
         Returns
         -------
         float
-            Probability of class -1 (higher = more normal).
+            Probability of being an attack.
         """
-        # Sort columns
         sorted_columns = sorted(df_pp.columns)
         df_sorted = df_pp[sorted_columns].copy()
-        if "ip.opt.time_stamp" in df_sorted.columns:
-            df_sorted["ip.opt.time_stamp"] = df_sorted["ip.opt.time_stamp"].fillna(-1)
-            X = df_sorted.drop("ip.opt.time_stamp", axis=1)
-        else:
-            X = df_sorted
-        proba = self.model.predict_proba(X)[sample_idx]
-        classes = self.model.classes_
+        X = df_sorted.drop("ip.opt.time_stamp", axis=1).iloc[[sample_idx]]
+        proba = self.model.predict_proba(X)[0]
+        idx_norm = list(self.model.classes_).index(-1)
 
-        try:
-            idx_norm = np.where(classes == -1)[0][0]
-        except IndexError:
-            raise RuntimeError("Class -1 not present in model.classes_. ")
-
-        return float(proba[idx_norm])
+        return 1.0 - proba[idx_norm]
 
 
-def evaluate_predictions_knn(y_true, y_pred):
+def evaluate_predictions_knn(y_true, y_pred) -> np.ndarray:
     """
     Evaluate predictions (multi-class).
 
@@ -242,7 +230,7 @@ def evaluate_predictions_knn(y_true, y_pred):
     return cm
 
 
-def run_knn(detector: DetectionKnn, test_csv: str):
+def run_knn(detector: DetectionKnn, test_csv: str) -> None:
     """
     Full evaluation routine for the KNN detector.
 
