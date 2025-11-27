@@ -15,6 +15,7 @@ from ml_models import (
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+logger = logging.getLogger(__name__)
 
 TRAIN = True
 SAVE_DIR = Path(__file__).parent / "trained_models/"
@@ -34,21 +35,19 @@ if __name__ == "__main__":
     # ========================================================================
     # ISOLATION FOREST
     # ========================================================================
-    print("\n" + "🌲" * 40)
-    print("ISOLATION FOREST")
-    print("🌲" * 40)
+    logger.info("ISOLATION FOREST")
 
     if_det = DetectionIsolationForest()
 
     if TRAIN:
-        print("⚙️  Training Isolation Forest...")
+        logger.info("   Training Isolation Forest...")
         if_det.load_train_data(train_unsup)
         if_det.train()
-        print("⚙️  Optimizing threshold...")
+        logger.info("   Optimizing threshold...")
         run_isolation_forest(if_det, test_csvs[0], save_plot=False, show_plot=False)
         if_det.save_model(SAVE_DIR / "isolation_forest.pkl")
     else:
-        print("📂 Loading pre-trained Isolation Forest...")
+        logger.info("  Loading pre-trained Isolation Forest...")
         if_det.load_model(SAVE_DIR / "isolation_forest.pkl")
         if_det.load_train_data(train_unsup)
         for t in test_csvs:
@@ -57,19 +56,16 @@ if __name__ == "__main__":
     # ========================================================================
     # RANDOM FOREST
     # ========================================================================
-    print("\n" + "🌳" * 40)
-    print("RANDOM FOREST")
-    print("🌳" * 40)
-
+    logger.info("RANDOM FOREST")
     rf_det = DetectionRandomForest()
 
     if TRAIN:
-        print("⚙️  Training Random Forest...")
+        logger.info("    Training Random Forest...")
         rf_det.load_train_data(train_sup)
         rf_det.train()
         rf_det.save_model(SAVE_DIR / "random_forest.pkl")
     else:
-        print("📂 Loading pre-trained Random Forest...")
+        logger.info("   Loading pre-trained Random Forest...")
         rf_det.load_model(SAVE_DIR / "random_forest.pkl")
         rf_det.load_train_data(train_sup)
 
@@ -79,19 +75,16 @@ if __name__ == "__main__":
     # ========================================================================
     # K-NEAREST NEIGHBORS
     # ========================================================================
-    print("\n" + "🔍" * 40)
-    print("K-NEAREST NEIGHBORS")
-    print("🔍" * 40)
-
+    logger.info("K-NEAREST NEIGHBORS")
     knn_det = DetectionKnn()
 
     if TRAIN:
-        print("⚙️  Training KNN...")
+        logger.info("   Training KNN...")
         knn_det.load_train_data(train_sup)
         knn_det.train()
         knn_det.save_model(SAVE_DIR / "knn.pkl")
     else:
-        print("📂 Loading pre-trained KNN...")
+        logger.info("   Loading pre-trained KNN...")
         knn_det.load_model(SAVE_DIR / "knn.pkl")
         knn_det.load_train_data(train_sup)
 
@@ -101,25 +94,20 @@ if __name__ == "__main__":
     # ========================================================================
     # MLP AUTOENCODER
     # ========================================================================
-    print("\n" + "🧠" * 40)
-    print("MLP AUTOENCODER")
-    print("🧠" * 40)
-
+    logger.info("MLP AUTOENCODER")
     ae_det = DetectionAutoEncoder()
 
     if TRAIN:
-        print("⚙️  Training Autoencoder...")
+        logger.info("   Training Autoencoder...")
         ae_det.load_train_data(train_unsup)
         ae_det.train_autoencoder(latent_dim=2, num_epochs=200, patience=10)
-        print("⚙️  Optimizing threshold...")
+        logger.info("   Optimizing threshold...")
         run_autoencoder(ae_det, test_csvs[0], enforce_percentile=None)
         ae_det.save_model(SAVE_DIR / "autoencoder.pth")
     else:
-        print("📂 Loading pre-trained Autoencoder...")
+        logger.info("  Loading pre-trained Autoencoder...")
         ae_det.load_model(SAVE_DIR / "autoencoder.pth")
         for t in test_csvs:
             run_autoencoder(ae_det, t, enforce_percentile=None)
 
-    print("\n" + "✅" * 40)
-    print("EVALUATION COMPLETE!")
-    print("✅" * 40)
+    logger.info("EVALUATION COMPLETE!")
