@@ -1,17 +1,20 @@
 from pathlib import Path
-
+import logging
+import os
 from preprocessor import preprocessing_pipeline
 
-INPUT_DIR = "cleaned_datasets"
-OUTPUT_DIR = "final_datasets_from_preprocessing"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+INPUT_DIR = f"{Path(__file__).parent.parent}/data/cleaned_datasets"
+OUTPUT_DIR = f"{Path(__file__).parent.parent}/data/final_datasets_from_preprocessing"
 
 if __name__ == "__main__":
-    print("\n" + "=" * 80)
-    print("5G-ATTACKS PREPROCESSING PIPELINE")
-    print("=" * 80)
-    print(f"Input:  {INPUT_DIR}/dataset_*_cleaned.csv")
-    print(f"Output: {OUTPUT_DIR}/dataset_*_final.csv")
-    print("=" * 80 + "\n")
+    logger.info("\nPREPROCESSING PIPELINE\n")
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     # Build input paths
     cleaned_paths = [
@@ -19,21 +22,14 @@ if __name__ == "__main__":
         f"{INPUT_DIR}/dataset_2_cleaned.csv",
         f"{INPUT_DIR}/dataset_3_cleaned.csv",
     ]
-
-    # Check existence
+    # Check files existence
     missing = [p for p in cleaned_paths if not Path(p).exists()]
     if missing:
-        print("❌ ERROR: Missing input files:")
+        logger.warning("ERROR: Missing input files:")
         for p in missing:
-            print(f"   - {p}")
+            logger.warning(f"   - {p}")
         exit(1)
 
-    # Run preprocessing
+    # Run preprocessing starting from cleaned datasets
     preprocessing_pipeline(input_dir=INPUT_DIR, output_dir=OUTPUT_DIR)
-
-    print(f"\n{'=' * 80}")
-    print("✅ ALL DONE!")
-    print(f"{'=' * 80}")
-    print(f"\nFinal datasets saved to: {OUTPUT_DIR}/")
-    print(f"\nStandardScaler also saved (returned by function)")
-    print(f"{'=' * 80}\n")
+    logger.info(f"\nFinal datasets saved to: {OUTPUT_DIR}/")
