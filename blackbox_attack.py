@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 from typing import Dict
@@ -58,6 +59,7 @@ class BlackBoxAttack:
             logger.info(
                 f"Sample {sample_idx} is already classified as benign. Skipping."
             )
+            self._save_results(sample_idx, pd.Series(), orig_score, detector)
             return
 
         if hasattr(detector, "best_threshold"):
@@ -65,6 +67,7 @@ class BlackBoxAttack:
                 logger.info(
                     f"Sample {sample_idx} is already classified as benign. Skipping."
                 )
+                self._save_results(sample_idx, pd.Series(), orig_score, detector)
                 return
 
         if hasattr(detector, "threshold"):
@@ -72,6 +75,7 @@ class BlackBoxAttack:
                 logger.info(
                     f"Sample {sample_idx} is already classified as benign. Skipping."
                 )
+                self._save_results(sample_idx, pd.Series(), orig_score, detector)
                 return
 
         # --------------------------
@@ -94,6 +98,13 @@ class BlackBoxAttack:
             x_adv = self._apply_modifications(sample, x.value)
             loss = self._compute_loss(sample_idx, x_adv, df, detector)
             logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
+
+            if hasattr(detector, "best_threshold") and loss < detector.best_threshold:
+                logger.info(
+                    f"Sample {sample_idx} evaded the detector at iteration {idx + 1}."
+                )
+                break
+
             self._optimizer.tell(x, loss)
 
         # ----------------------
@@ -102,9 +113,30 @@ class BlackBoxAttack:
         recommendation = self._optimizer.provide_recommendation()
         best_params = recommendation.value
         best_loss = recommendation.loss
+        self._save_results(sample_idx, pd.Series(best_params), best_loss, detector)
 
-        logger.info(f"Best params: {best_params}")
-        logger.info(f"Best loss: {best_loss}")
+    def _save_results(
+        self,
+        sample_idx: int,
+        best_params: pd.Series,
+        best_loss: float,
+        detector: object
+    ) -> None:
+        results_path = Path(__file__).parent / "results/isolation.json"
+        if results_path.exists():
+            with results_path.open("r") as f:
+                results = json.load(f)
+        else:
+            results = {}
+
+        results[str(sample_idx)] = {
+            "best_params": best_params.to_dict(),
+            "best_loss": best_loss,
+            "evaded": best_loss < detector.best_threshold,
+        }
+
+        with results_path.open("w", encoding="utf-8") as f:
+            json.dump(results, f, indent=4)
 
     def _apply_modifications(
         self, sample: pd.Series, params: Dict[str, int]
@@ -228,8 +260,17 @@ if __name__ == "__main__":
 
     bb = BlackBoxAttack()
 
+    results_path = Path(__file__).parent / "results/isolation.json"
+    if results_path.exists():
+        with results_path.open("r") as f:
+            results = json.load(f)
+
     for idx, row in dataset.iterrows():
+        if str(idx) in results:
+            logger.info(f"Sample {idx} already attacked. Skipping.")
+            continue
+
         if pd.isna(row["ip.opt.time_stamp"]):
             continue
 
-        bb.run(idx, dataset.copy(), knn_det, query_budget=100)
+        bb.run(idx, dataset.copy(), knn_det, query_budget=60)
