@@ -9,6 +9,14 @@ import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+import logging
+
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 # region --- PREPROCESSING STEPS ---
 
 
@@ -306,7 +314,7 @@ def compute_pairwise_correlations(
     """
     if special_cols is None:
         special_cols = ["ip.opt.time_stamp", "frame.number"]
-    print(f"Loading sample {file_path}...")
+    logger.info(f"Loading sample {file_path}...")
     df = pd.read_csv(
         file_path, sep=";", nrows=5000, low_memory=False, encoding="latin-1"
     )
@@ -383,21 +391,16 @@ def find_common_correlated_pairs(
                 corr2_val = abs(special_corr2.get(col2, 0)) + abs(
                     special_corr3.get(col2, 0)
                 )
-                # Drop the least label-correlated featur
+                # Drop the least label-correlated feature
                 if corr1 < corr2_val:
                     cols_to_remove.add(col1)
-                    print(
-                        f"Delete {col1} (corr label {corr1:.3f}) vs {col2} (corr label {corr2_val:.3f})"
-                    )
+                    logger.info(f"Delete {col1} (corr label {corr1:.3f}) vs {col2} (corr label {corr2_val:.3f})")
                 else:
                     cols_to_remove.add(col2)
-                    print(
-                        f"Delete {col2} (corr label {corr2_val:.3f}) vs {col1} (corr label {corr1:.3f})"
-                    )
+                    logger.info(f"Delete {col2} (corr label {corr2_val:.3f}) vs {col1} (corr label {corr1:.3f})")
 
-    print(
-        f"{len(correlated_pairs)} correlated pairs detected in BOTH games(|corr| >= {threshold})"
-    )
+    logger.info(f"{len(correlated_pairs)} correlated pairs detected in BOTH games(|corr| >= {threshold})")
+
     return cols_to_remove
 
 
@@ -432,7 +435,6 @@ def apply_filter_and_save(input_file, output_file, cols_to_drop, chunksize=50000
             index=False,
             header=write_header,
             mode="w" if write_header else "a",
-            encoding="latin-1",
         )
         write_header = False
 
@@ -462,14 +464,14 @@ def compute_pearson_filter_multi(input_dir, output_dir):
     )
     # Only keep columns present in both datasets
     common_cols = sorted(set(cols2).intersection(set(cols3)))
-    print(f"Common numeric cols across datasets: {len(common_cols)}")
+    logger.info(f"Common numeric cols across datasets: {len(common_cols)}")
     # Identify globally removable columns
     cols_to_remove = find_common_correlated_pairs(
         corr2, corr3, common_cols, special_corr2, special_corr3, threshold=0.90
     )
-    print("Columns removed globally:")
+    logger.info("Columns removed globally:")
     for col in sorted(cols_to_remove):
-        print(f" - {col}")
+        logger.info(f" - {col}")
     # Save removal list
     os.makedirs("models_preprocessing", exist_ok=True)
     with open("models_preprocessing/cols_to_remove.json", "w") as f:
@@ -564,6 +566,7 @@ def transform_file_with_scaler(
     None
     """
     write_header = True
+    c = read_csv(file_in)
     for chunk in pd.read_csv(file_in, chunksize=chunksize, sep=sep):
         # Scale numerical subset
         chunk_to_scale = chunk[columns_to_scale].fillna(0).astype(float)
@@ -616,7 +619,8 @@ def read_csv(path: str | Path) -> pd.DataFrame:
 
 
 def preprocessing_pipeline(
-    input_dir="cleaned_dataset", output_dir="final_datasets_from_preprocessing"
+    input_dir="cleaned_dataset",
+    output_dir="final_datasets_from_preprocessing"
 ):
     """
     Run the complete preprocessing pipeline on datasets 1, 2, and 3.
@@ -635,15 +639,9 @@ def preprocessing_pipeline(
     None
     """
     # Step 2: TCP OPTIONS PARSING
-    enrich_tcp_columns(
-        f"{input_dir}/dataset_1_cleaned.csv", f"{output_dir}/dataset_1_tcp.csv"
-    )
-    enrich_tcp_columns(
-        f"{input_dir}/dataset_2_cleaned.csv", f"{output_dir}/dataset_2_tcp.csv"
-    )
-    enrich_tcp_columns(
-        f"{input_dir}/dataset_3_cleaned.csv", f"{output_dir}/dataset_3_tcp.csv"
-    )
+    enrich_tcp_columns(f"{input_dir}/dataset_1_cleaned.csv", f"{output_dir}/dataset_1_tcp.csv")
+    enrich_tcp_columns(f"{input_dir}/dataset_2_cleaned.csv", f"{output_dir}/dataset_2_tcp.csv")
+    enrich_tcp_columns(f"{input_dir}/dataset_3_cleaned.csv", f"{output_dir}/dataset_3_tcp.csv")
 
     # Step 3: ADVANCED CLEANING
     drop_columns_chunked(
@@ -768,7 +766,7 @@ def preprocessing_pipeline(
             pass
 
     if fake_num_cols:
-        print("Recast object→numeric:", fake_num_cols)
+        logger.info(f"Recast object -> numeric: {fake_num_cols}")
     # Fit one-hot encoder across all datasets
     df_attack_cat = df_attack[non_num_cols]
     df_saine_cat = df_saine[non_num_cols]
@@ -812,14 +810,14 @@ def preprocessing_pipeline(
         # Frequency encoding
         for col in freq_cols:
             if col in df.columns:
-                print(f"   {data_frame}: {col}")
+                logger.info(f"   {data_frame}: {col}")
                 df[col] = frequency_encode(df, col)
         df_freq_cols = df[[c for c in freq_cols if c in df.columns]]
 
         # Time conversion
         for col in time_columns:
             if col in df.columns:
-                print(f"    {data_frame}: {col}")
+                logger.info(f"    {data_frame}: {col}")
                 df[col] = time_conversion(df, col)
         df_time_columns = df[[c for c in time_columns if c in df.columns]]
         df = df[
@@ -919,9 +917,12 @@ def preprocessing_pipeline(
     # Step 6: CORRELATION FILTERING
     compute_pearson_filter_multi(input_dir, output_dir)
     # Save common columns for model consistency
-    df1 = pd.read_csv(f"{output_dir}/dataset_1_filtered.csv", sep=";", nrows=1)
-    df2 = pd.read_csv(f"{output_dir}/dataset_2_filtered.csv", sep=";", nrows=1)
-    df3 = pd.read_csv(f"{output_dir}/dataset_3_filtered.csv", sep=";", nrows=1)
+    df1 = read_csv(f"{output_dir}/dataset_1_filtered.csv")
+    df1 = df1.iloc[0:1]
+    df2 = read_csv(f"{output_dir}/dataset_2_filtered.csv")
+    df2 = df2.iloc[0:1]
+    df3 = read_csv(f"{output_dir}/dataset_3_filtered.csv")
+    df3 = df3.iloc[0:1]
     common_filtered_cols = list(set(df1.columns) & set(df2.columns) & set(df3.columns))
     with open("models_preprocessing/common_filtered_cols.json", "w") as f:
         json.dump(common_filtered_cols, f, indent=2)
@@ -976,24 +977,24 @@ def preprocessing_pipeline_single_dataset(
     df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
-    Apply the preprocessing pipeline to a single dataset, either from a CSV file
-    or a DataFrame.
+    Apply the same preprocessing pipeline as the full version but only to
+    a single dataset. Can run from a DataFrame or from a CSV path.
 
     Parameters
     ----------
+    input_file : str or None
+        Input CSV path (ignored when df is provided).
     output_dir : str
         Output directory for results.
     dataset_name : str
         Prefix used for naming intermediate files.
-    input_file : str | None
-        Path to input CSV file (optional).
-    df : DataFrame | None
-        Input DataFrame (optional).
+    df : DataFrame or None
+        Input dataframe (optional).
 
     Returns
     -------
     DataFrame
-        Preprocessed DataFrame.
+        Fully preprocessed dataset.
     """
     os.makedirs(output_dir, exist_ok=True)
     work_dir = output_dir
@@ -1001,7 +1002,7 @@ def preprocessing_pipeline_single_dataset(
     # === STEP 1: LOAD DATA ===
     if df is None:
         if input_file is None:
-            raise ValueError("Either input_file or df must be provided.")
+            raise ValueError("You must specify input_file or df.")
         df = read_csv(input_file)
 
     # Save input to temp CSV (ensures compatibility with chunked functions)
@@ -1089,7 +1090,7 @@ def preprocessing_pipeline_single_dataset(
     if timestamp_col is not None:
         df[special_columns[0]] = timestamp_col
 
-    df.to_csv(encoded_path, sep=";", index=False)
+    df.to_csv(encoded_path, sep=";", index=False, encoding="latin-1")
 
     # === STEP 6: CORRELATION FILTERING ===
     with open(Path(__file__).parent / "models_preprocessing/cols_to_remove.json") as f:
@@ -1117,5 +1118,7 @@ def preprocessing_pipeline_single_dataset(
 
     if temp_input and os.path.exists(temp_input):
         os.remove(temp_input)
+    final_df = read_csv(final_path)
+    logger.info(f"✅ Dataset preprocessed and saved in: {final_path}")
 
-    return read_csv(final_path)
+    return final_df
