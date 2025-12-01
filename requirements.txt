@@ -7,3 +7,4 @@ joblib>=1.5.2
 nevergrad>=1.0.12
 torch>=2.9.1
 torchvision>=0.24.1
+pyod>=2.0.5

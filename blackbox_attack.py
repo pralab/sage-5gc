@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict
 
 import nevergrad as ng
+import numpy as np
 import pandas as pd
 
 from preprocessing.preprocessor import preprocessing_pipeline_single_dataset
@@ -18,9 +19,16 @@ logger = logging.getLogger(__name__)
 class BlackBoxAttack:
     """Black-box attack for network traffic classifiers."""
 
-    def __init__(self) -> None:
-        """"""
-        self._optimizer_cls = None
+    def __init__(self, optimizer_cls: ng.optimization.Optimizer) -> None:
+        """
+        Create a BlackBoxAttack instance.
+
+        Parameters
+        ----------
+        optimizer_cls : ng.optimization.Optimizer
+            The Nevergrad optimizer class to use for the attack.
+        """
+        self._optimizer_cls = optimizer_cls
         self._optimizer = None
         self._query_budget = None
 
@@ -35,7 +43,20 @@ class BlackBoxAttack:
         detector: object,
         query_budget: int = 100,
     ) -> None:
-        """"""
+        """
+        Run the black-box attack on a given sample.
+
+        Parameters
+        ----------
+        sample_idx : int
+            The index of the sample to attack in the DataFrame.
+        df : pd.DataFrame
+            The DataFrame containing the dataset.
+        detector : object
+            The detector object with a get_score method.
+        query_budget : int
+            The maximum number of queries allowed for the attack.
+        """
         self._query_budget = query_budget
         sample = df.iloc[sample_idx]
 
@@ -54,57 +75,21 @@ class BlackBoxAttack:
         orig_score = detector.get_score(baseline_df_pp, sample_idx)
         logger.info(f"Original score for sample {sample_idx}: {orig_score}")
 
-        # Early stopping if sample is already classified as benign
-        if orig_score == 0.0:
-            logger.info(
-                f"Sample {sample_idx} is already classified as benign. Skipping."
-            )
-            self._save_results(sample_idx, pd.Series(), orig_score, detector)
-            return
-
-        if hasattr(detector, "best_threshold"):
-            if orig_score < detector.best_threshold:
-                logger.info(
-                    f"Sample {sample_idx} is already classified as benign. Skipping."
-                )
-                self._save_results(sample_idx, pd.Series(), orig_score, detector)
-                return
-
-        if hasattr(detector, "threshold"):
-            if orig_score < detector.threshold:
-                logger.info(
-                    f"Sample {sample_idx} is already classified as benign. Skipping."
-                )
-                self._save_results(sample_idx, pd.Series(), orig_score, detector)
-                return
+        # TODO: Add early stopping if the sample is already classified as benign
 
         # --------------------------
         # [Step 2] Set up optimizer
         # --------------------------
-        self._optimizer_cls = ng.optimizers.EvolutionStrategy(
-            recombination_ratio=0.9,
-            popsize=20,
-            only_offsprings=False,
-            offsprings=20,
-            ranker="simple",
-        )
         self._optimizer = self._init_optimizer(is_tcp=(sample["ip.proto"] == 6))
 
         # --------------------
         # [Step 3] Run attack
         # --------------------
-        for idx in range(self._query_budget):
+        for idx in range(self._optimizer.budget):
             x = self._optimizer.ask()
             x_adv = self._apply_modifications(sample, x.value)
             loss = self._compute_loss(sample_idx, x_adv, df, detector)
             logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
-
-            if hasattr(detector, "best_threshold") and loss < detector.best_threshold:
-                logger.info(
-                    f"Sample {sample_idx} evaded the detector at iteration {idx + 1}."
-                )
-                break
-
             self._optimizer.tell(x, loss)
 
         # ----------------------
@@ -215,7 +200,7 @@ class BlackBoxAttack:
         )
 
         if is_tcp:
-            tcp_param = ng.p.Dict(
+            param = ng.p.Dict(
                 **base_param,
                 tcp_srcport=ng.p.Scalar(lower=0, upper=65000).set_integer_casting(),
                 tcp_seq_raw=ng.p.Scalar(lower=0, upper=2**32 - 1).set_integer_casting(),
@@ -237,28 +222,29 @@ class BlackBoxAttack:
                 ).set_integer_casting(),
             )
         else:
-            udp_param = ng.p.Dict(
+            param = ng.p.Dict(
                 **base_param,
                 udp_srcport=ng.p.Scalar(lower=0, upper=65000).set_integer_casting(),
             )
 
-        return self._optimizer_cls(
-            tcp_param if is_tcp else udp_param, budget=self._query_budget
-        )
+        param.random_state = np.random.RandomState(42)
+
+        return self._optimizer_cls(parametrization=param, budget=self._query_budget)
 
 
 if __name__ == "__main__":
-    from ml_models import DetectionKnn, DetectionRandomForest, DetectionIsolationForest
-
     path = Path(__file__).parent / "data/cleaned_datasets/dataset_3_cleaned.csv"
     dataset = pd.read_csv(path, sep=";", low_memory=False, encoding="utf-8")
 
-    knn_det = DetectionIsolationForest()
-    knn_det.load_model(
-        str(Path(__file__).parent / "trained_models/isolation_forest.pkl")
+    optimizer_cls = ng.optimizers.EvolutionStrategy(
+            recombination_ratio=0.9,
+            popsize=20,
+            only_offsprings=False,
+            offsprings=20,
+            ranker="simple",
     )
 
-    bb = BlackBoxAttack()
+    bb = BlackBoxAttack(optimizer_cls)
 
     results_path = Path(__file__).parent / "results/isolation.json"
     if results_path.exists():
@@ -273,4 +259,4 @@ if __name__ == "__main__":
         if pd.isna(row["ip.opt.time_stamp"]):
             continue
 
-        bb.run(idx, dataset.copy(), knn_det, query_budget=60)
+        bb.run(idx, dataset.copy(), None, query_budget=60)

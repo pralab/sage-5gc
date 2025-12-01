@@ -1,33 +1,75 @@
+from pathlib import Path
+
+import pandas as pd
+
+from .preprocessor_utils import (
+    preprocessing_pipeline_test as _test,
+)
 from .preprocessor_utils import (
     preprocessing_pipeline_train as _train,
-    preprocessing_pipeline_test as _test,
 )
 
 
 class Preprocessor:
     """Wrapper class that exposes utility preprocessing functions as methods."""
-    def __init__(self):
-        self._is_fitted = False
-        self._df_final = None
 
-    def train(self, output_dir, input_file):
-        """Call the train preprocessing pipeline. Run only if not already fitted."""
-        if not self._is_fitted:
-            # Run the actual training pipeline
-            df = _train(output_dir, input_file)
-            self._df_final = df
-            self._is_fitted = True
-            return df
+    def train(
+        self, df_train: pd.DataFrame, output_dir: str, skip_preprocess: bool = False
+    ) -> pd.DataFrame:
+        """
+        Call the train preprocessing pipeline. Run only if not already fitted.
+
+        Parameters
+        ----------
+        df_train : pd.DataFrame
+            Training clean DataFrame.
+        output_dir : str
+            Output directory for results.
+        skip_preprocess : bool, optional
+            If True, skip preprocessing and load existing final dataset from output_dir,
+            by default False.
+
+        Returns
+        -------
+        pd.DataFrame
+            The preprocessed DataFrame.
+        """
+        if skip_preprocess:
+            if not (Path(output_dir) / "dataset_train_final.csv").exists:
+                raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
+
+            with (Path(output_dir) / "dataset_train_final.csv").open("r") as f:
+                df = pd.read_csv(f)
         else:
-            # Just load the already fitted data
-            self._is_fitted = True
-            return self._df_final
+            # Run the actual training pipeline
+            df = _train(df_train, output_dir)
+        return df
 
-    @staticmethod
-    def test(output_dir, input_file):
-        """Call the test preprocessing pipeline."""
-        return _test(output_dir, input_file)
+    def test(
+        self, df_test: pd.DataFrame, output_dir: str, skip_preprocess: bool = False
+    ) -> pd.DataFrame:
+        """
+        Call the test preprocessing pipeline.
 
-    @property
-    def is_fitted(self):
-        return self._is_fitted
+        Parameters
+        ----------
+        df_test : pd.DataFrame
+            Test clean DataFrame.
+        output_dir : str
+            Output directory for results.
+
+        Returns
+        -------
+        pd.DataFrame
+            The preprocessed DataFrame.
+        """
+        if skip_preprocess:
+            if not (Path(output_dir) / "dataset_test_final.csv").exists:
+                raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
+
+            with (Path(output_dir) / "dataset_test_final.csv").open("r") as f:
+                df = pd.read_csv(f)
+        else:
+            df = _test(df_test, output_dir)
+
+        return df
