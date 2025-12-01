@@ -1,7 +1,11 @@
+"""Script to train and evaluate multiple anomaly detection models using Grid Search."""
+
 import json
 import os
 from pathlib import Path
 import re
+import sys
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -22,24 +26,31 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.model_selection import GridSearchCV, train_test_split
-import sys
+
 sys.path.append(str(Path(__file__).parent.parent))
+import logging
+
 from ml_models import Detector
 from preprocessing import Preprocessor
-import logging
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def make_json_serializable(d):
+def make_json_serializable(d: dict) -> dict:
     """
     Recursively convert non-serializable values to serializable ones.
-    Args:
-        d (dict): Input dictionary.
-    Returns:
-        dict: JSON-serializable dictionary.
+
+    Parameters
+    ----------
+    d : dict
+        Input dictionary.
+
+    Returns
+    -------
+    dict
+        JSON-serializable dictionary.
     """
     out = {}
     for k, v in d.items():
@@ -64,14 +75,20 @@ def make_json_serializable(d):
     return out
 
 
-def compute_and_save_metrics(y_test_bin, pred_test, test_result_file):
-    """Compute and log metrics, save to results.
-    Args:
-        y_test_bin: True binary labels.
-        pred_test: Predicted labels.
-        test_result_file: Path to save results JSON.
-    Returns:
-        None
+def compute_and_save_metrics(
+    y_test_bin: np.ndarray, pred_test: np.ndarray, test_result_file: str
+) -> None:
+    """
+    Compute and log metrics, save to results.
+
+    Parameters
+    ----------
+    y_test_bin : np.ndarray
+      True binary labels.
+    pred_test : np.ndarray
+        Predicted labels.
+    test_result_file : str
+        Path to save results JSON.
     """
     acc = (y_test_bin == pred_test).mean()
     f1 = f1_score(y_test_bin, pred_test)
@@ -94,19 +111,26 @@ def compute_and_save_metrics(y_test_bin, pred_test, test_result_file):
             "recall": rec,
         }
     )
-    # SAVE TEST RESULTS
+
     with open(test_result_file, "w") as f:
         json.dump(make_json_serializable(results[-1]), f, indent=2)
-    logger.debug(f"🟢 Test results saved to {test_result_file}")
+
+    logger.debug(f"Test results saved to {test_result_file}")
 
 
-def build_target(labels):
+def build_target(labels: pd.Series) -> np.ndarray:
     """
     Build binary target from labels column.
-    Args:
-        labels (pd.Series or None): Series with original labels.
-    Returns:
-        np.ndarray: Binary target array (0 benign, 1 attack).
+
+    Parameters
+    ----------
+    labels : pd.Series
+        Series with original labels.
+
+    Returns
+    -------
+    np.ndarray
+        Binary target array (0 benign, 1 attack).
     """
     # NaN -> benign (0), qualsiasi valore numerico -> attack (1)
     if labels is not None:
@@ -115,12 +139,18 @@ def build_target(labels):
         return np.zeros(len(labels), dtype=int)
 
 
-def restore_estimator(e):
+def restore_estimator(e: dict | list | str) -> object:
     """
     Restore estimator from serialized format.
-    Args:
-        e: Serialized estimator (dict, list, or repr string).
-    Returns:
+
+    Parameters
+    ----------
+    e : dict | list | str
+        Serialized estimator (dict, list, or repr string).
+
+    Returns
+    -------
+    object
         Restored estimator object.
     """
     # Restore from dict (old format)
@@ -143,21 +173,28 @@ def restore_estimator(e):
     return e
 
 
-def validation_scorer(estimator, X_unused):
+def validation_scorer(estimator: object, X_unused: pd.DataFrame) -> float:
     """
     Score always on the fixed validation set.
-    Args:
-        estimator: The estimator to evaluate.
-        X_unused: Unused, required by sklearn interface.
-    Returns:
-        float: ROC AUC score on validation set.
+
+    Parameters
+    ----------
+    estimator : object
+        The estimator to evaluate.
+    X_unused : pd.DataFrame
+        Unused, required by sklearn interface.
+
+    Returns
+    -------
+    float
+        ROC AUC score on validation set.
     """
     pred = estimator.predict(X_val)
     return roc_auc_score(y_val, pred)
 
 
 # --- LIST OF CONFIGURATIONS ---
-param_grid_models = {
+PARAM_GRID_MODELS = {
     # "ABOD": {
     #     "n_neighbors": [1, 3, 5, 10, 20, 35, 50, 100],
     #     "contamination": [0.05, 0.1, 0.2],
@@ -245,8 +282,12 @@ param_grid_models = {
     # },
 }
 
-# --- DATA LOADING ---
-TRAIN_PATH = Path(__file__).parent.parent / "data/cleaned_datasets/dataset_training_benign.csv"
+# ---------------------------
+# CONFIG PATHS AND CONSTANTS
+# ---------------------------
+TRAIN_PATH = (
+    Path(__file__).parent.parent / "data/cleaned_datasets/dataset_training_benign.csv"
+)
 TEST_PATH = Path(__file__).parent.parent / "data/cleaned_datasets/dataset_3_cleaned.csv"
 LABEL_COL = "ip.opt.time_stamp"
 VAL_SIZE = 0.05  # 5% of the test set for validation
@@ -256,56 +297,71 @@ BEST_PARAMS_PATH = Path(__file__).parent.parent / "results/detector_best_params.
 # Directory to save trained model and results
 MODEL_DIR = Path(__file__).parent.parent / "data/trained_models"
 RESULTS_DIR = Path(__file__).parent.parent / "results/training_results"
+
+
+# --------------------------------------
+# [Step 1] Load data and preprocess
+# --------------------------------------
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# Load datasets
 df_train = pd.read_csv(TRAIN_PATH, sep=";", low_memory=False)
 df_test = pd.read_csv(TEST_PATH, sep=";", low_memory=False)
-# Preprocess datasets
+
 processor = Preprocessor()
 df_train = processor.train(df_train, output_dir="tmp", skip_preprocess=False)
 df_test = processor.test(df_test, output_dir="tmp", skip_preprocess=False)
-# Build binary targets
+
+# --------------------------------------------
+# [Step 2] Build targets and split validation
+# --------------------------------------------
 y_test_bin = build_target(df_test[LABEL_COL] if LABEL_COL in df_test else None)
 X_train = df_train.drop(columns=[LABEL_COL], errors="ignore")
 X_test = df_test.drop(columns=[LABEL_COL], errors="ignore")
-logger.debug("Test set - label binaria (0 benign, 1 attack):", np.bincount(y_test_bin))
+logger.debug("Test set - (0 benign, 1 attack):", np.bincount(y_test_bin))
+
 # Split test into validation + final test
 X_val, X_final_test, y_val, y_final_test = train_test_split(
     X_test, y_test_bin, test_size=1 - VAL_SIZE, stratify=y_test_bin, random_state=42
 )
-logger.debug(f"Validation set size: {len(X_val)} - Test size finale: {len(X_final_test)}")
+logger.debug(
+    f"Validation set size: {len(X_val)} - Test size finale: {len(X_final_test)}"
+)
 
-# Load existing best params if available
+# ---------------------------------------------
+# [Step 2.1] Load best params cache if present
+# ---------------------------------------------
 if os.path.exists(BEST_PARAMS_PATH):
     with open(BEST_PARAMS_PATH, "r") as f:
         all_best_params = json.load(f)
 else:
     all_best_params = {}
 
+# --------------------------------------
+# [Step 3] Train models with Grid Search
+# --------------------------------------
 results = []
-for model_name, param_grid in param_grid_models.items():
+for model_name, param_grid in PARAM_GRID_MODELS.items():
     # Mapping string name -> True class
     model_class = eval(model_name)
-    logger.info(f"\n=== Model: {model_name} ===")
+    logger.info(f"Model: {model_name}")
     # Custom paths per-model
     model_file = f"{MODEL_DIR}/{model_name}.pkl"
     test_result_file = f"{RESULTS_DIR}/{model_name}.json"
 
-    # SKIP IF TEST RESULTS ARE ALREADY PRESENT
+    # Skip if test results already exist
     if os.path.exists(test_result_file):
-        logger.info(f"🟢 Test results detected for {model_name}, skipping to next model.")
+        logger.info(f"Test results detected for {model_name}, skipping to next model.")
         continue
 
     # If model already trained, load
     if os.path.exists(model_file):
-        logger.info(f"🔵 Model for {model_name} already trained and saved. Loading...")
+        logger.info(f"Model for {model_name} already trained and saved. Loading...")
         try:
             base_detector = joblib.load(model_file)
             logger.debug(f"Loaded {model_name} from {model_file}")
             best_params = all_best_params[model_name]
-            logger.debug(f"✅ Best params loaded from cache: {best_params}")
+            logger.debug(f"Best params loaded from cache: {best_params}")
         except Exception as e:
             raise ValueError(f"Model load failed for {model_name}: {e}")
         # Always perform the test & save results
@@ -318,10 +374,12 @@ for model_name, param_grid in param_grid_models.items():
             for k, v in best_params.items():
                 if k in ["clustering_estimator", "base_estimator", "detector_list"]:
                     best_params[k] = restore_estimator(v)
-                    logger.debug(f"✅ Best params loaded from cache: {best_params}")
+                    logger.debug(f"Best params loaded from cache: {best_params}")
             base_detector = Detector(detector_class=model_class, **best_params)
             base_detector.fit(X_train, output_dir="tmp", skip_preprocess=True)
-            pred_test = base_detector.predict(X_test, output_dir="tmp", skip_preprocess=True)
+            pred_test = base_detector.predict(
+                X_test, output_dir="tmp", skip_preprocess=True
+            )
         else:
             base_detector = Detector(detector_class=model_class)
             grid = GridSearchCV(
@@ -335,17 +393,20 @@ for model_name, param_grid in param_grid_models.items():
             best_params = grid.best_params_
             logger.debug(f"✅ Best params computed: {best_params}")
             all_best_params[model_name] = best_params
-            serializable_params = {m: make_json_serializable(p) for m, p in all_best_params.items()}
+            serializable_params = {
+                m: make_json_serializable(p) for m, p in all_best_params.items()
+            }
             with open(BEST_PARAMS_PATH, "w") as f:
                 json.dump(serializable_params, f, indent=2)
             best_detector = grid.best_estimator_
-            pred_test = best_detector.predict(X_test, output_dir="tmp", skip_preprocess=True)
+            pred_test = best_detector.predict(
+                X_test, output_dir="tmp", skip_preprocess=True
+            )
 
-        # SAVE THE TRAINED MODEL
+        # Save trained model and test results
         try:
             joblib.dump(base_detector, model_file)
-            logger.debug(f"✅ Model saved to: {model_file}")
+            logger.debug(f"Model saved to: {model_file}")
         except Exception as e:
-            logger.debug(f"⚠️ Failed to save model {model_name}: {e}")
+            logger.debug(f"Failed to save model {model_name}: {e}")
         compute_and_save_metrics(y_test_bin, pred_test, test_result_file)
-

@@ -75,10 +75,9 @@ class BlackBoxAttack:
         # --------------------------------------
         orig_score = detector.decision_function(df, sample_idx)
         logger.info(f"Original score for sample {sample_idx}: {orig_score}")
+        logger.info(f"Detector threshold: {detector.detector.threshold_}")
 
-        logger.info(f"true label {detector.predict(df)[sample_idx]}")
-
-        if orig_score < 0.0:
+        if orig_score < detector.detector.threshold_:
             logger.info(
                 f"Sample {sample_idx} is already classified as benign. Skipping attack."
             )
@@ -97,8 +96,8 @@ class BlackBoxAttack:
             x_adv = self._apply_modifications(sample, x.value)
             loss = self._compute_loss(sample_idx, x_adv, df, detector)
             logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
-            print(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
-            if loss < 0.0:
+
+            if loss < detector.detector.threshold_:
                 logger.info(
                     f"Sample {sample_idx} evaded the detector after {idx + 1} queries."
                 )
@@ -170,11 +169,14 @@ class BlackBoxAttack:
 
             elif key == "pfcp.recovery_time_stamp":
                 recovery_time = datetime.fromtimestamp(value, tz=timezone.utc)
-                times = self.gen_pfcp_times_exp(recovery_time)
+                times = gen_pfcp_times_exp(recovery_time)
                 adv_sample["pfcp.recovery_time_stamp"] = times["recovery_time_stamp"]
                 adv_sample["pfcp.time_of_first_packet"] = times["time_of_first_packet"]
                 adv_sample["pfcp.time_of_last_packet"] = times["time_of_last_packet"]
                 adv_sample["pfcp.end_time"] = times["end_time"]
+
+            elif key == "pfcp.response_time":
+                adv_sample[key] = value / 1_000_000.0
 
             elif key == "udp.srcport":
                 adv_sample[key] = value
@@ -189,39 +191,6 @@ class BlackBoxAttack:
 
         return adv_sample
 
-    def gen_pfcp_times_exp(
-        recovery_time_stamp: datetime,
-        mean_start_delay_sec: int = 30 * 60,  # Tipicaly within 30 min from recovery
-        mean_session_duration_sec: int = 20 * 60,  # Average duration 20 min
-        mean_end_delay_sec: int = 30,  # Shortly after last pkt (~30s)
-    ) -> Dict[str, str]:
-        def exp_sec(mean: float) -> int:
-            """Generates an exponential random variable in seconds with given mean."""
-            return max(0, int(random.expovariate(1.0 / mean)))
-
-        # Generates PFCP time fields based on exponential distributions
-        start_offset = exp_sec(mean_start_delay_sec)
-        time_of_first_packet = recovery_time_stamp + timedelta(seconds=start_offset)
-
-        traffic_duration = exp_sec(mean_session_duration_sec)
-        time_of_last_packet = time_of_first_packet + timedelta(seconds=traffic_duration)
-
-        end_delay = exp_sec(mean_end_delay_sec)
-        end_time = time_of_last_packet + timedelta(seconds=end_delay)
-
-        # Format timestamps with random nanoseconds
-        def fmt(dt: datetime) -> str:
-            base = dt.strftime("%b %d, %Y %H:%M:%S")
-            nanos = random.randint(0, 999_999_999)
-            return f"{base}.{nanos:09d} UTC"
-
-        return {
-            "recovery_time_stamp": fmt(recovery_time_stamp),
-            "time_of_first_packet": fmt(time_of_first_packet),
-            "time_of_last_packet": fmt(time_of_last_packet),
-            "end_time": fmt(end_time),
-        }
-
     def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
         base_param = ng.p.Dict(
             # IP layer
@@ -234,7 +203,7 @@ class BlackBoxAttack:
             pfcp_duration_measurement=ng.p.Scalar(
                 lower=0, upper=2**32 - 1
             ).set_integer_casting(),
-            pfcp_response_time=None,
+            pfcp_response_time=ng.p.Scalar(lower=0, upper=5000),
             pfcp_recovery_time_stamp=ng.p.Scalar(
                 lower=int(
                     datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp()
@@ -256,9 +225,9 @@ class BlackBoxAttack:
             pfcp_volume_measurement_tovol=ng.p.Scalar(
                 lower=0, upper=2**32 - 1
             ).set_integer_casting(),
-            pfcp_user_id_imei=ng.p.Scalar(
-                lower=0, upper=999999999999999
-            ).set_integer_casting(),
+            # pfcp_user_id_imei=ng.p.Scalar(
+            #     lower=0, upper=999999999999999
+            # ).set_integer_casting(),
             pfcp_ue_ip_address_flag_sd=ng.p.Choice([0, 1]),
             pfcp_f_teid_flags_ch=ng.p.Choice([0, 1]),
             pfcp_f_teid_flags_ch_id=ng.p.Choice([0, 1]),
@@ -298,6 +267,40 @@ class BlackBoxAttack:
         return self._optimizer_cls(parametrization=param, budget=self._query_budget)
 
 
+def gen_pfcp_times_exp(
+    recovery_time_stamp: datetime,
+    mean_start_delay_sec: int = 30 * 60,  # Tipicaly within 30 min from recovery
+    mean_session_duration_sec: int = 20 * 60,  # Average duration 20 min
+    mean_end_delay_sec: int = 30,  # Shortly after last pkt (~30s)
+) -> Dict[str, str]:
+    def exp_sec(mean: float) -> int:
+        """Generates an exponential random variable in seconds with given mean."""
+        return max(0, int(random.expovariate(1.0 / mean)))
+
+    # Generates PFCP time fields based on exponential distributions
+    start_offset = exp_sec(mean_start_delay_sec)
+    time_of_first_packet = recovery_time_stamp + timedelta(seconds=start_offset)
+
+    traffic_duration = exp_sec(mean_session_duration_sec)
+    time_of_last_packet = time_of_first_packet + timedelta(seconds=traffic_duration)
+
+    end_delay = exp_sec(mean_end_delay_sec)
+    end_time = time_of_last_packet + timedelta(seconds=end_delay)
+
+    # Format timestamps with random nanoseconds
+    def fmt(dt: datetime) -> str:
+        base = dt.strftime("%b %d, %Y %H:%M:%S")
+        nanos = random.randint(0, 999_999_999)
+        return f"{base}.{nanos:09d} UTC"
+
+    return {
+        "recovery_time_stamp": fmt(recovery_time_stamp),
+        "time_of_first_packet": fmt(time_of_first_packet),
+        "time_of_last_packet": fmt(time_of_last_packet),
+        "end_time": fmt(end_time),
+    }
+
+
 if __name__ == "__main__":
     import joblib
     from pyod.models.hbos import HBOS
@@ -305,12 +308,17 @@ if __name__ == "__main__":
     path = Path(__file__).parent.parent / "data/cleaned_datasets/dataset_3_cleaned.csv"
     dataset = pd.read_csv(path, sep=";", low_memory=False)
 
-    optimizer_cls = ng.optimizers.EvolutionStrategy(
-        recombination_ratio=0.9,
+    # optimizer_cls = ng.optimizers.EvolutionStrategy(
+    #     recombination_ratio=0.9,
+    #     popsize=20,
+    #     only_offsprings=False,
+    #     offsprings=20,
+    #     ranker="simple",
+    # )
+    optimizer_cls = ng.optimizers.DifferentialEvolution(
         popsize=20,
-        only_offsprings=False,
-        offsprings=20,
-        ranker="simple",
+        crossover="twopoints",
+        propagate_heritage=True,
     )
 
     bb = BlackBoxAttack(optimizer_cls)
@@ -318,7 +326,6 @@ if __name__ == "__main__":
     detector = joblib.load(
         Path(__file__).parent.parent / "data/trained_models/IForest.pkl"
     )
-    # logger.info(f"Loaded trained HBOS detector with threshold {detector.detector.threshold_}")
 
     results_path = Path(__file__).parent.parent / "results/hbos.json"
     if results_path.exists():

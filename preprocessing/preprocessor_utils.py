@@ -597,8 +597,6 @@ def preprocessing_pipeline_train(
         Fully preprocessed dataset.
     """
     os.makedirs(output_dir, exist_ok=True)
-    if os.path.exists(f"{output_dir}/dataset_train_final.csv"):
-        return read_csv(f"{output_dir}/dataset_train_final.csv")
 
     # Step 2: TCP OPTIONS PARSING
     tcp_path = f"{output_dir}/dataset_train_tcp.csv"
