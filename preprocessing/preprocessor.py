@@ -39,7 +39,7 @@ class Preprocessor:
                 raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
 
             with (Path(output_dir) / "dataset_train_final.csv").open("r") as f:
-                df = pd.read_csv(f)
+                df = pd.read_csv(f, low_memory=False, sep=";")
         else:
             # Run the actual training pipeline
             df = _train(df_train, output_dir)
@@ -68,7 +68,7 @@ class Preprocessor:
                 raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
 
             with (Path(output_dir) / "dataset_test_final.csv").open("r") as f:
-                df = pd.read_csv(f)
+                df = pd.read_csv(f, low_memory=False, sep=";")
         else:
             df = _test(df_test, output_dir)
 

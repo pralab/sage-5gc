@@ -7,8 +7,15 @@ import sys
 import joblib
 import numpy as np
 import pandas as pd
+from pyod.models.cblof import CBLOF
+from pyod.models.gmm import GMM
 from pyod.models.hbos import HBOS
+from pyod.models.iforest import IForest
+from pyod.models.inne import INNE
+from pyod.models.kde import KDE
 from pyod.models.lof import LOF
+from pyod.models.ocsvm import OCSVM
+from pyod.models.pca import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import (
     classification_report,
@@ -214,7 +221,7 @@ else:
 
 results = []
 for model_name, param_grid in param_grid_models.items():
-    # Mapping string nome -> classe vera
+    # Mapping string name -> True class
     model_class = eval(model_name)
     print(f"\n=== Model: {model_name} ===")
 
@@ -323,7 +330,7 @@ for model_name, param_grid in param_grid_models.items():
         print(f"ROC AUC    : {roc:.3f}")
         print(f"Precision  : {prec:.3f}")
         print(f"Recall     : {rec:.3f}")
-        print(classification_report(y_test_bin, pred_test))
+        #print(classification_report(y_test_bin, pred_test))
         results.append(
             {
                 "model": model_name,
