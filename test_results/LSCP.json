@@ -1,0 +1,9 @@
+{
+  "model": "LSCP",
+  "best_params": "{'contamination': 0.05, 'detector_list': [LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=5, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=10, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=15, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=20, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=25, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=30, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=35, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=40, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=45, novelty=True, p=2), LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=50, novelty=True, p=2)], 'random_state': 42}",
+  "accuracy": 0.3022210918955578,
+  "f1": 0.3407288746495795,
+  "roc_auc": 0.5743613610507808,
+  "precision": 0.20534852288086503,
+  "recall": 1.0
+}

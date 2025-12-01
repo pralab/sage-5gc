@@ -1,0 +1,14 @@
+{
+  "model": "GMM",
+  "best_params": {
+    "contamination": 0.05,
+    "covariance_type": "spherical",
+    "n_components": 2,
+    "random_state": 42
+  },
+  "accuracy": 0.7046456425907087,
+  "f1": 0.5497544585164125,
+  "roc_auc": 0.8198365911676492,
+  "precision": 0.3790768134022456,
+  "recall": 1.0
+}
