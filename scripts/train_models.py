@@ -16,7 +16,6 @@ from pyod.models.ocsvm import OCSVM
 from pyod.models.pca import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import (
-    classification_report,
     f1_score,
     precision_score,
     recall_score,
@@ -349,3 +348,4 @@ for model_name, param_grid in param_grid_models.items():
         except Exception as e:
             logger.debug(f"⚠️ Failed to save model {model_name}: {e}")
         compute_and_save_metrics(y_test_bin, pred_test, test_result_file)
+
