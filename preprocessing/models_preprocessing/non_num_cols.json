@@ -1,0 +1,9 @@
+[
+  "ip.dsfield",
+  "ip.flags",
+  "pfcp.apply_action.drop",
+  "pfcp.flags",
+  "pfcp.flow_desc",
+  "pfcp.network_instance",
+  "pfcp.ue_ip_address_flag.sd"
+]
