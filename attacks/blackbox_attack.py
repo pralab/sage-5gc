@@ -1,6 +1,8 @@
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 from pathlib import Path
+import random
 import sys
 from typing import Dict
 
@@ -36,6 +38,8 @@ class BlackBoxAttack:
         # Create a temporary directory for intermediate preprocessing files
         self._tmp_dir = Path(__file__).parent.parent / "tmp/"
         self._tmp_dir.mkdir(parents=True, exist_ok=True)
+
+        random.seed(42)
 
     def run(
         self,
@@ -133,6 +137,13 @@ class BlackBoxAttack:
         with results_path.open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=4)
 
+    def _compute_loss(
+        self, sample_idx: int, x_adv: pd.Series, df: pd.DataFrame, detector: Detector
+    ) -> float:
+        adv_df = df.copy()
+        adv_df.loc[sample_idx] = x_adv
+        return detector.decision_function(adv_df, sample_idx)
+
     def _apply_modifications(
         self, sample: pd.Series, params: Dict[str, int]
     ) -> pd.Series:
@@ -142,43 +153,97 @@ class BlackBoxAttack:
 
             if key == "ip.id":
                 adv_sample[key] = hex(value)
-            if key == "ip.flags.df":
+
+            elif key == "ip.flags.df":
                 adv_sample[key] = value
                 # Modify the corresponding bit in ip.flags
                 adv_sample["ip.flags"] = hex(
                     (adv_sample["ip.flags"] & ~0x02) | ((value & 0x01) << 1)
                 )
-            if key == "ip.dsfield.dscp":
+
+            elif key == "ip.dsfield.dscp":
                 adv_sample[key] = value
                 # Modify the corresponding bits in ip.dsfield
                 adv_sample["ip.dsfield"] = hex(
                     (adv_sample["ip.dsfield"] & 0x03) | ((value & 0x3F) << 2)
                 )
+
+            elif key == "pfcp.recovery_time_stamp":
+                recovery_time = datetime.fromtimestamp(value, tz=timezone.utc)
+                times = self.gen_pfcp_times_exp(recovery_time)
+                adv_sample["pfcp.recovery_time_stamp"] = times["recovery_time_stamp"]
+                adv_sample["pfcp.time_of_first_packet"] = times["time_of_first_packet"]
+                adv_sample["pfcp.time_of_last_packet"] = times["time_of_last_packet"]
+                adv_sample["pfcp.end_time"] = times["end_time"]
+
+            elif key == "udp.srcport":
+                adv_sample[key] = value
+                adv_sample["udp.port"] = value
+
+            elif key == "tcp.srcport":
+                adv_sample[key] = value
+                adv_sample["tcp.port"] = value
+
             else:
                 adv_sample[key] = value
 
         return adv_sample
 
-    def _compute_loss(
-        self, sample_idx: int, x_adv: pd.Series, df: pd.DataFrame, detector: Detector
-    ) -> float:
-        adv_df = df.copy()
-        adv_df.loc[sample_idx] = x_adv
-        return detector.decision_function(adv_df, sample_idx)
+    def gen_pfcp_times_exp(
+        recovery_time_stamp: datetime,
+        mean_start_delay_sec: int = 30 * 60,  # Tipicaly within 30 min from recovery
+        mean_session_duration_sec: int = 20 * 60,  # Average duration 20 min
+        mean_end_delay_sec: int = 30,  # Shortly after last pkt (~30s)
+    ) -> Dict[str, str]:
+        def exp_sec(mean: float) -> int:
+            """Generates an exponential random variable in seconds with given mean."""
+            return max(0, int(random.expovariate(1.0 / mean)))
+
+        # Generates PFCP time fields based on exponential distributions
+        start_offset = exp_sec(mean_start_delay_sec)
+        time_of_first_packet = recovery_time_stamp + timedelta(seconds=start_offset)
+
+        traffic_duration = exp_sec(mean_session_duration_sec)
+        time_of_last_packet = time_of_first_packet + timedelta(seconds=traffic_duration)
+
+        end_delay = exp_sec(mean_end_delay_sec)
+        end_time = time_of_last_packet + timedelta(seconds=end_delay)
+
+        # Format timestamps with random nanoseconds
+        def fmt(dt: datetime) -> str:
+            base = dt.strftime("%b %d, %Y %H:%M:%S")
+            nanos = random.randint(0, 999_999_999)
+            return f"{base}.{nanos:09d} UTC"
+
+        return {
+            "recovery_time_stamp": fmt(recovery_time_stamp),
+            "time_of_first_packet": fmt(time_of_first_packet),
+            "time_of_last_packet": fmt(time_of_last_packet),
+            "end_time": fmt(end_time),
+        }
 
     def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
         base_param = ng.p.Dict(
+            # IP layer
             ip_ttl=ng.p.Scalar(lower=1, upper=255).set_integer_casting(),
             ip_id=ng.p.Scalar(lower=0, upper=2**16 - 1).set_integer_casting(),
             ip_flags_df=ng.p.Choice([0, 1]),
             ip_dsfield_dscp=ng.p.Scalar(lower=0, upper=63).set_integer_casting(),
+
+            # PFCP layer
             pfcp_duration_measurement=ng.p.Scalar(
                 lower=0, upper=2**32 - 1
             ).set_integer_casting(),
-            pfcp_time_of_first_packet=None,
-            pfcp_time_of_last_packet=None,
-            pfcp_end_time=None,
-            pfcp_recovery_time_stamp=None,
+            pfcp_response_time=None,
+            pfcp_recovery_time_stamp=ng.p.Scalar(
+                lower=int(
+                    datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp()
+                ),
+                upper=int(
+                    datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp()
+                )
+                - 1,
+            ).set_integer_casting(),
             pfcp_volume_measurement_dlnop=ng.p.Scalar(
                 lower=0, upper=2**32 - 1
             ).set_integer_casting(),
@@ -253,7 +318,7 @@ if __name__ == "__main__":
     detector = joblib.load(
         Path(__file__).parent.parent / "data/trained_models/IForest.pkl"
     )
-    #logger.info(f"Loaded trained HBOS detector with threshold {detector.detector.threshold_}")
+    # logger.info(f"Loaded trained HBOS detector with threshold {detector.detector.threshold_}")
 
     results_path = Path(__file__).parent.parent / "results/hbos.json"
     if results_path.exists():

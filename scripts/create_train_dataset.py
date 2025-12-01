@@ -13,55 +13,53 @@ def merge_benign_samples(
     dataset_target_path: str,
     output_path: str,
     label_col: str = "ip.opt.time_stamp",
-):
+) -> pd.DataFrame:
     """
-    Estrae i campioni benigni (label NaN) da un dataset e li accorpa a un altro dataset benigno.
+    Extracts benign samples (label NaN) from a dataset and appends them to another
+    benign dataset.
 
     Parameters
     ----------
     dataset_source_path : str
-        Path del dataset da cui estrarre i benigni.
+        Path of the dataset to extract benign samples from.
     dataset_target_path : str
-        Path del dataset che contiene già solo benigni.
+        Path of the dataset that already contains only benign samples.
     output_path : str
-        Path dove salvare il dataset finale.
+        Path where to save the final dataset.
     label_col : str
-        Nome della colonna label (default: ip.opt.time_stamp)
+        Name of the label column (default: ip.opt.time_stamp)
 
     Returns
     -------
     pd.DataFrame
-        Dataset finale unito.
+        The merged final dataset.
     """
-    print(f"Caricamento dataset sorgente: {dataset_source_path}")
+    print(f"Loading source dataset: {dataset_source_path}")
     df_source = pd.read_csv(dataset_source_path, sep=";", low_memory=False)
 
-    print(f"Caricamento dataset target: {dataset_target_path}")
+    print(f"Loading target dataset: {dataset_target_path}")
     df_target = pd.read_csv(dataset_target_path, sep=";", low_memory=False)
 
-    # Estrai benigni dal dataset sorgente
-    print("Estrazione campioni benigni (label NaN)...")
+    # Extract benign samples from the source dataset
+    print("Extracting benign samples (label NaN)...")
     benign_source = df_source[df_source[label_col].isna()].copy()
 
-    print(f"Campioni benigni estratti: {len(benign_source)}")
-    print(f"Campioni benigni nel target: {len(df_target)}")
+    print(f"Benign samples extracted: {len(benign_source)}")
+    print(f"Benign samples in target: {len(df_target)}")
 
-    # Accorpa
-    print("Concatenazione dataset...")
+    # Concatenate
+    print("Concatenating datasets...")
     df_final = pd.concat([df_target, benign_source], ignore_index=True)
 
-    # Salva
-    print(f"Salvataggio dataset finale → {output_path}")
+    # Save
+    print(f"Saving final dataset → {output_path}")
     df_final.to_csv(output_path, sep=";", index=False)
 
-    print("Operazione completata ✓")
+    print("Operation completed")
 
     return df_final
 
 
-# =============================
-# ESEMPIO DI UTILIZZO
-# =============================
 if __name__ == "__main__":
     merge_benign_samples(
         dataset_source_path=Path(__file__).parent.parent
