@@ -57,22 +57,22 @@ class Detector(BaseEstimator, ClassifierMixin):
             raise ValueError("Model not trained, call fit() before predict().")
 
         df = self.preprocessor.test(df_test, output_dir, skip_preprocess)
-        X_ = df.drop(columns=["ip.opt.time_stamp"], errors="ignore")
-        X_ = X_.copy()
+        X = df.copy()
+        X = df.drop(columns=["ip.opt.time_stamp"], errors="ignore")
         if self._feature_columns is not None:
-            X_ = X_[self._feature_columns]
-        return self.detector.predict(X_.values)
+            X = X[self._feature_columns]
+        return self.detector.predict(X.values)
 
     def decision_function(
         self, df_test: pd.DataFrame, sample_idx: int, skip_preprocess: bool = False
     ):
         df = self.preprocessor.test(df_test, "tmp", skip_preprocess)
+        X = df.copy()
         X = df.drop("ip.opt.time_stamp", axis=1, errors="ignore")
-        X = X.copy()
         if self._feature_columns is not None:
             X = X[self._feature_columns]
         X_sample = X.iloc[[sample_idx]]
-        return -self.detector.decision_function(X_sample.values)[0]
+        return self.detector.decision_function(X_sample.values)[0]
 
     def get_params(self, deep=True):
         out = {"detector_class": self.detector_class}

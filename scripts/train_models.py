@@ -208,7 +208,7 @@ def validation_scorer(estimator, X_unused):
 # ---- setup per salvataggio best params ----
 BEST_PARAMS_PATH = Path(__file__).parent.parent / "results/detector_best_params.json"
 # ---- directory to save trained model & results ----
-MODEL_DIR = Path(__file__).parent.parent / "trained_models"
+MODEL_DIR = Path(__file__).parent.parent / "data/trained_models"
 RESULTS_DIR = Path(__file__).parent.parent / "results/training_results"
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
