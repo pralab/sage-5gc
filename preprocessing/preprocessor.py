@@ -1,12 +1,9 @@
 from pathlib import Path
-
 import pandas as pd
 
-from .preprocessor_utils import (
-    preprocessing_pipeline_test as _test,
-)
-from .preprocessor_utils import (
+from .preprocessor_utils_new import (
     preprocessing_pipeline_train as _train,
+    preprocessing_pipeline_test as _test,
 )
 
 
@@ -35,10 +32,10 @@ class Preprocessor:
             The preprocessed DataFrame.
         """
         if skip_preprocess:
-            if not (Path(output_dir) / "dataset_train_final.csv").exists:
+            if not (Path(output_dir) / "train_dataset_processed.csv").exists:
                 raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
 
-            with (Path(output_dir) / "dataset_train_final.csv").open("r") as f:
+            with (Path(output_dir) / "train_dataset_processed.csv").open("r") as f:
                 df = pd.read_csv(f, low_memory=False, sep=";")
         else:
             # Run the actual training pipeline
@@ -64,10 +61,10 @@ class Preprocessor:
             The preprocessed DataFrame.
         """
         if skip_preprocess:
-            if not (Path(output_dir) / "dataset_test_final.csv").exists:
+            if not (Path(output_dir) / "test_dataset_processed.csv").exists:
                 raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
 
-            with (Path(output_dir) / "dataset_test_final.csv").open("r") as f:
+            with (Path(output_dir) / "test_dataset_processed.csv").open("r") as f:
                 df = pd.read_csv(f, low_memory=False, sep=";")
         else:
             df = _test(df_test, output_dir)
