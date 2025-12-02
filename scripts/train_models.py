@@ -291,15 +291,15 @@ PARAM_GRID_MODELS = {
 # ---------------------------
 # CONFIG PATHS AND CONSTANTS
 # ---------------------------
-TRAIN_PATH = (
-    Path(__file__).parent.parent / "data/datasets/train_dataset.csv"
-)
+TRAIN_PATH = Path(__file__).parent.parent / "data/datasets/train_dataset.csv"
 TEST_PATH = Path(__file__).parent.parent / "data/datasets/test_dataset.csv"
 LABEL_COL = "ip.opt.time_stamp"
 VAL_SIZE = 0.05  # 5% of the test set for validation
 
 # Setup to save best params
-BEST_PARAMS_PATH = Path(__file__).parent.parent / "results/detector_best_params.json"
+BEST_PARAMS_PATH = (
+    Path(__file__).parent.parent / "results/training_results/detector_best_params.json"
+)
 # Directory to save trained model and results
 MODEL_DIR = Path(__file__).parent.parent / "data/trained_models"
 RESULTS_DIR = Path(__file__).parent.parent / "results/training_results"
@@ -382,6 +382,7 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
                     best_params[k] = restore_estimator(v)
                     logger.debug(f"Best params loaded from cache: {best_params}")
             base_detector = Detector(detector_class=model_class, **best_params)
+            logger.info(f"Training {model_name} with cached best params...")
             base_detector.fit(X_train, output_dir="tmp", skip_preprocess=True)
             pred_test = base_detector.predict(
                 X_test, output_dir="tmp", skip_preprocess=True
@@ -396,9 +397,10 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
                 refit=True,
             )
             try:
+                logger.info(f"Performing Grid Search for {model_name}...")
                 grid.fit(X_train, output_dir="tmp", skip_preprocess=True)
                 best_params = grid.best_params_
-                logger.debug(f"Best params computed: {best_params}")
+                logger.info(f"Best params computed: {best_params}")
                 all_best_params[model_name] = best_params
                 serializable_params = {
                     m: make_json_serializable(p) for m, p in all_best_params.items()

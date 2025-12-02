@@ -1,5 +1,5 @@
 from .preprocessor import Preprocessor
-from .preprocessor_utils import (
+from .utils import (
     preprocessing_pipeline_test,
     preprocessing_pipeline_train,
 )

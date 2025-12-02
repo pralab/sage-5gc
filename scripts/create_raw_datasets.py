@@ -59,5 +59,10 @@ print("Test dataset shape:", df_test.shape)
 df_train_filtered = drop_tcp_and_icmp_packets(df_train)
 df_test_filtered = drop_tcp_and_icmp_packets(df_test)
 
+# Remove TCP-related columns
+tcp_columns = [col for col in df_train_filtered.columns if col.startswith("tcp.")]
+df_train_filtered.drop(columns=tcp_columns, inplace=True)
+df_test_filtered.drop(columns=tcp_columns, inplace=True)
+
 df_train_filtered.to_csv(dataset_dir / "train_dataset.csv", sep=";", index=False)
 df_test_filtered.to_csv(dataset_dir / "test_dataset.csv", sep=";", index=False)

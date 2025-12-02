@@ -1,0 +1,12 @@
+{
+  "model": "LOF",
+  "best_params": {
+    "contamination": 0.05,
+    "n_neighbors": 35
+  },
+  "accuracy": 0.32697524584604953,
+  "f1": 0.34888870663495447,
+  "roc_auc": 0.5894611645464888,
+  "precision": 0.21130538446254718,
+  "recall": 1.0
+}

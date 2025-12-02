@@ -27,7 +27,7 @@ def drop_columns(df):
     """
     col_to_drop = [
         # Wireshark
-        "frame.number"
+        "frame.number",
         # IP-related columns
         "ip.src",
         "ip.dst",
@@ -80,10 +80,10 @@ def drop_constant_ip_columns(df):
     if constant_ip_col_to_drop:
         logger.debug(f"Dropping constant IP-related columns: {constant_ip_col_to_drop}")
         # Save the dropped columns names to a file json
-        with open(
-            "preprocessing/models_preprocessing_new/constant_ip_columns_dropped.json",
-            "w",
-        ) as f:
+        with (
+            Path(__file__).parent
+            / "models_preprocessing/constant_ip_columns_dropped.json"
+        ).open("w") as f:
             json.dump(constant_ip_col_to_drop, f, indent=2)
 
     df_dropped = df.drop(columns=constant_ip_col_to_drop, errors="ignore")
@@ -395,7 +395,7 @@ def preprocessing_pipeline_train(
     )
     dump(
         boolean_imputer,
-        Path(__file__).parent / "models_preprocessing_new/boolean_imputer.pkl",
+        Path(__file__).parent / "models_preprocessing/boolean_imputer.pkl",
     )
 
     df_train_processed = timestamp_to_numeric(df_train_processed)
@@ -406,11 +406,11 @@ def preprocessing_pipeline_train(
     )
     dump(
         pfcp_counter_imputer,
-        Path(__file__).parent / "models_preprocessing_new/pfcp_counter_imputer.pkl",
+        Path(__file__).parent / "models_preprocessing/pfcp_counter_imputer.pkl",
     )
     dump(
         pfcp_flag_imputer,
-        Path(__file__).parent / "models_preprocessing_new/pfcp_flag_imputer.pkl",
+        Path(__file__).parent / "models_preprocessing/pfcp_flag_imputer.pkl",
     )
 
     # -----------------------------
