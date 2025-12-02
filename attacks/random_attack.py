@@ -61,7 +61,7 @@ POSSIBLE_FEATURES = {
         "tcp.completeness.fin",
         "tcp.completeness.str",
         "tcp.completeness.syn-ack",
-        #"tcp.dstport",
+        # "tcp.dstport",
         "tcp.flags",
         "tcp.flags.ack",
         "tcp.flags.fin",
@@ -94,7 +94,7 @@ POSSIBLE_FEATURES = {
         "udp.payload",
         "udp.port",
         "udp.srcport",
-        #"udp.dstport",
+        # "udp.dstport",
         # "udp.stream",
         # "udp.time_delta",
         # "udp.time_relative",
@@ -445,15 +445,15 @@ def random_attack(
 
     if adv_sample["ip.proto"] == 6:  # TCP
         protocol_fields = (
-            #POSSIBLE_FEATURES["TCP"]
+            # POSSIBLE_FEATURES["TCP"]
             POSSIBLE_FEATURES["IP"]
-            #+ POSSIBLE_FEATURES["PFCP"]
+            # + POSSIBLE_FEATURES["PFCP"]
         )
     elif adv_sample["ip.proto"] == 17:  # UDP
         protocol_fields = (
-            #POSSIBLE_FEATURES["UDP"]
+            # POSSIBLE_FEATURES["UDP"]
             POSSIBLE_FEATURES["IP"]
-            #POSSIBLE_FEATURES["PFCP"]
+            # POSSIBLE_FEATURES["PFCP"]
         )
     else:
         return adv_sample
@@ -479,10 +479,10 @@ def random_attack(
         adv_sample["ip.host"] = adv_sample["ip.src"]
 
     if "tcp.port" in adv_sample.index and "tcp.srcport" in adv_sample.index:
-        adv_sample["tcp.port"] = adv_sample['tcp.srcport']
+        adv_sample["tcp.port"] = adv_sample["tcp.srcport"]
 
     if "udp.port" in adv_sample.index and "udp.srcport" in adv_sample.index:
-        adv_sample["udp.port"] = adv_sample['udp.srcport']
+        adv_sample["udp.port"] = adv_sample["udp.srcport"]
 
     return adv_sample
 
