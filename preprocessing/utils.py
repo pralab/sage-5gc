@@ -2,6 +2,8 @@ import os
 import json
 import pandas as pd
 import logging
+from joblib import dump, load
+from sklearn.impute import SimpleImputer
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -22,7 +24,7 @@ def drop_ip_columns(df):
     # IP-related columns not useful for intrusion detection
     ip_col_to_drop = ['ip.src', 'ip.dst', 'ip.dst_host', 'ip.host', 'ip.addr', 'ip.src_host']
     df_dropped = df.drop(columns=ip_col_to_drop, errors='ignore')
-    logger.info(f"Remaining DataFrame shape: {df_dropped.shape}")
+    logger.debug(f"Remaining DataFrame shape: {df_dropped.shape}")
 
     return df_dropped
 
@@ -44,12 +46,12 @@ def drop_constant_ip_columns(df):
         if df[col].nunique() == 1:
             constant_ip_col_to_drop.append(col)
     if constant_ip_col_to_drop:
-        logger.info(f"Dropping constant IP-related columns: {constant_ip_col_to_drop}")
+        logger.debug(f"Dropping constant IP-related columns: {constant_ip_col_to_drop}")
         # Save the dropped columns names to a file json
-        with open("constant_ip_columns_dropped.json", "w") as f:
+        with open("preprocessing/models_preprocessing_new/constant_ip_columns_dropped.json", "w") as f:
             json.dump(constant_ip_col_to_drop, f, indent=2)
     df_dropped = df.drop(columns=constant_ip_col_to_drop, errors='ignore')
-    logger.info(f"Remaining DataFrame shape: {df_dropped.shape}")
+    logger.debug(f"Remaining DataFrame shape: {df_dropped.shape}")
 
     return df_dropped
 
@@ -68,7 +70,7 @@ def drop_udp_columns(df):
     # UDP-related columns not useful for intrusion detection
     udp_col_to_drop = ['udp.port', 'udp.srcport', 'udp.dstport', 'udp.stream', 'udp.time_delta', 'udp.time_relative']
     df_dropped = df.drop(columns=udp_col_to_drop, errors='ignore')
-    logger.info(f"Remaining DataFrame shape: {df_dropped.shape}")
+    logger.debug(f"Remaining DataFrame shape: {df_dropped.shape}")
 
     return df_dropped
 
@@ -87,39 +89,72 @@ def drop_pfcp_columns(df):
     # PFCP-related columns not useful for intrusion detection
     pfcp_col_to_drop = ['pfcp.flow_desc', 'pfcp.network_instance']
     df_dropped = df.drop(columns=pfcp_col_to_drop, errors='ignore')
-    logger.info(f"Remaining DataFrame shape: {df_dropped.shape}")
+    logger.debug(f"Remaining DataFrame shape: {df_dropped.shape}")
 
     return df_dropped
 
 
 # Function to convert boolean columns to integer (0/1)
-def boolean_to_integer(df):
+def boolean_to_integer(df, imputer=None, fit_mode=False):
     """
-    Converts boolean columns in the DataFrame to integer (0/1).
-    Parameters:
-        df (pd.DataFrame): DataFrame containing network packet data.
-    Returns:
-        pd.DataFrame: DataFrame with boolean columns converted to integer.
+    Convert boolean columns to integer WITH imputer for NaN handling.
+
+    Strategy: Use SimpleImputer with 'most_frequent' strategy.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input dataframe.
+    imputer : SimpleImputer or None
+        Pre-fitted imputer (for test mode).
+    fit_mode : bool
+        If True, fit the imputer (training mode).
+
+    Returns
+    -------
+    df : pd.DataFrame
+        Transformed dataframe.
+    imputer : SimpleImputer (only if fit_mode=True)
+        Fitted imputer.
     """
     df = df.copy()
-    bool_cols = ['ip.flags.df',
-                 'pfcp.ue_ip_address_flag.sd',
-                 'pfcp.f_teid_flags.ch',
-                 'pfcp.f_teid_flags.ch_id',
-                 'pfcp.f_teid_flags.v6',
-                 'pfcp.apply_action.buff',
-                 'pfcp.apply_action.drop',
-                 'pfcp.apply_action.forw',
-                 'pfcp.apply_action.nocp',
-                 'pfcp.s']
-    existing_bool_cols = [col for col in bool_cols if col in df.columns]
-    if existing_bool_cols:
-        # fill Riempi NaN with False (0)
-        df[existing_bool_cols] = df[existing_bool_cols].fillna(False)
-        df[existing_bool_cols] = df[existing_bool_cols].astype(int)
-        logger.info(f"Converted {len(existing_bool_cols)} boolean columns to integer")
 
-    return df
+    bool_cols = [
+        'ip.flags.df',
+        'pfcp. ue_ip_address_flag. sd',
+        'pfcp.f_teid_flags.ch',
+        'pfcp.f_teid_flags.ch_id',
+        'pfcp.f_teid_flags.v6',
+        'pfcp.apply_action. buff',
+        'pfcp.apply_action.drop',
+        'pfcp.apply_action.forw',
+        'pfcp. apply_action.nocp',
+        'pfcp.s'
+    ]
+    existing_bool_cols = [col for col in bool_cols if col in df.columns]
+    if not existing_bool_cols:
+        return (df, imputer) if fit_mode else df
+    # Convert True/False to 1/0 (NaN stays NaN)
+    for col in existing_bool_cols:
+        df[col] = df[col].map({True: 1, False: 0})  # NaN rimane NaN
+
+    # Imputation
+    if fit_mode:
+        # TRAINING: Fit imputer
+        imputer = SimpleImputer(strategy='most_frequent')
+        df[existing_bool_cols] = imputer.fit_transform(df[existing_bool_cols])
+        logger.debug(f"✅ Fitted boolean imputer on {len(existing_bool_cols)} columns")
+        logger.debug(f"   Learned values: {dict(zip(existing_bool_cols, imputer.statistics_))}")
+
+        return df, imputer
+    else:
+        # TEST: Apply pre-fitted imputer
+        if imputer is None:
+            raise ValueError("❌ Imputer must be provided in test mode (fit_mode=False)")
+        df[existing_bool_cols] = imputer.transform(df[existing_bool_cols])
+        logger.debug(f"✅ Applied boolean imputer to {len(existing_bool_cols)} columns")
+
+        return df
 
 
 # Function to convert timestamp columns to unix like integer
@@ -139,7 +174,7 @@ def timestamp_to_integer(df):
     for col in timestamp_cols:
         try:
             df[col] = pd.to_datetime(df[col], errors='coerce').astype('int64') // 10**9
-            logger.info(f"Converted timestamp column to integer: {col}")
+            logger.debug(f"Converted timestamp column to integer: {col}")
         except Exception as e:
             logger.warning(f"Could not convert column {col} to integer timestamp: {e}")
 
@@ -156,7 +191,7 @@ def hex_to_integer(df):
         pd.DataFrame: DataFrame with hexadecimal columns converted to integer.
     """
     df = df.copy()
-    hex_cols = ['ip.dsfiled',
+    hex_cols = ['ip.dsfield',
                 'ip.flags',
                 'ip.checksum',
                 'udp.checksum',
@@ -167,7 +202,7 @@ def hex_to_integer(df):
     for col in hex_cols:
         try:
             df[col] = df[col].apply(lambda x: int(x, 16) if isinstance(x, str) and x.startswith('0x') else x)
-            logger.info(f"Converted hexadecimal column to integer: {col}")
+            logger.debug(f"Converted hexadecimal column to integer: {col}")
         except Exception as e:
             logger.warning(f"Could not convert column {col} from hex to integer: {e}")
 
@@ -186,13 +221,13 @@ def ip_to_integer(df):
     df = df.copy()
     ip_cols = ['pfcp.f_seid.ipv4',
                'pfcp.f_teid.ipv4_addr',
-               'pfcp.node_id.ipv4',
-               'pfcp.outer_hdr_creation.ipv4_addr',
+               'pfcp.node_id_ipv4',
+               'pfcp.outer_hdr_creation.ipv4',
                'pfcp.ue_ip_addr_ipv4']
     for col in ip_cols:
         try:
             df[col] = df[col].apply(lambda x: int.from_bytes(map(int, x.split('.')), 'big') if isinstance(x, str) else x)
-            logger.info(f"Converted IP address column to integer: {col}")
+            logger.debug(f"Converted IP address column to integer: {col}")
         except Exception as e:
             logger.warning(f"Could not convert column {col} from IP to integer: {e}")
 
@@ -221,7 +256,9 @@ def preprocessing_pipeline_train(
     # Drop PFCP columns
     df_train_processed = drop_pfcp_columns(df_train_processed)
     # Convert boolean columns to integer
-    df_train_processed = boolean_to_integer(df_train_processed)
+    df_train_processed, boolean_imputer = boolean_to_integer(df_train_processed, fit_mode=True)
+    os.makedirs("preprocessing/models_preprocessing_new", exist_ok=True)
+    dump(boolean_imputer, "preprocessing/models_preprocessing_new/boolean_imputer.pkl")
     # Convert timestamp columns to integer
     df_train_processed = timestamp_to_integer(df_train_processed)
     # Convert hex columns to integer
@@ -260,7 +297,14 @@ def preprocessing_pipeline_test(
     # Drop PFCP columns
     df_test_processed = drop_pfcp_columns(df_test_processed)
     # Convert boolean columns to integer
-    df_test_processed = boolean_to_integer(df_test_processed)
+    if not os.path.exists("preprocessing/models_preprocessing_new/boolean_imputer.pkl"):
+        raise FileNotFoundError("❌ boolean_imputer.pkl not found!  Run training first.")
+    boolean_imputer = load("preprocessing/models_preprocessing_new/boolean_imputer.pkl")
+    df_test_processed = boolean_to_integer(
+        df_test_processed,
+        imputer=boolean_imputer,
+        fit_mode=False
+    )
     # Convert timestamp columns to integer
     df_test_processed = timestamp_to_integer(df_test_processed)
     # Convert hex columns to integer
@@ -270,11 +314,11 @@ def preprocessing_pipeline_test(
     # Drop constant IP columns -> No sense if we have a single sample
     # df_test_processed = drop_constant_ip_columns(df_test_processed)
     # In test case it's better to recover the dropped constant IP columns from training if any
-    if os.path.exists("constant_ip_columns_dropped.json"):
-        with open("constant_ip_columns_dropped.json", "r") as f:
+    if os.path.exists("preprocessing/models_preprocessing_new/constant_ip_columns_dropped.json"):
+        with open("preprocessing/models_preprocessing_new/constant_ip_columns_dropped.json", "r") as f:
             constant_ip_col_to_drop = json.load(f)
         df_test_processed = df_test_processed.drop(columns=constant_ip_col_to_drop, errors='ignore')
-        logger.info(f"Dropped constant IP-related columns from test data: {constant_ip_col_to_drop}")
+        logger.debug(f"Dropped constant IP-related columns from test data: {constant_ip_col_to_drop}")
 
     # Saving final processed training data
     output_path = os.path.join(output_dir, "test_dataset_processed.csv")
