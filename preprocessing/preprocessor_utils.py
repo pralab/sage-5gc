@@ -520,7 +520,7 @@ def transform_file_with_scaler(
     None
     """
     write_header = True
-    for chunk in pd.read_csv(file_in, chunksize=chunksize, sep=sep):
+    for chunk in pd.read_csv(file_in, chunksize=chunksize, sep=sep, low_memory=False):
         # Scale numerical subset
         chunk_to_scale = (
             chunk[columns_to_scale]
@@ -813,6 +813,7 @@ def preprocessing_pipeline_test(
         Fully preprocessed dataset.
     """
     os.makedirs(output_dir, exist_ok=True)
+
     # === STEP 2: TCP OPTIONS PARSING ===
     tcp_path = os.path.join(output_dir, "dataset_test_tcp.csv")
     enrich_tcp_columns(df_test, tcp_path)
