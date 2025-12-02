@@ -68,7 +68,9 @@ def drop_udp_columns(df):
     pd.DataFrame: DataFrame with UDP-related columns removed.
     """
     # UDP-related columns not useful for intrusion detection
-    udp_col_to_drop = ['udp.port', 'udp.srcport', 'udp.dstport', 'udp.stream', 'udp.time_delta', 'udp.time_relative']
+    udp_col_to_drop = ['udp.port', 'udp.srcport', 'udp.dstport',
+                       'udp.stream', 'udp.time_delta',
+                       'udp.time_relative', 'udp.payload']
     df_dropped = df.drop(columns=udp_col_to_drop, errors='ignore')
     logger.debug(f"Remaining DataFrame shape: {df_dropped.shape}")
 
@@ -121,14 +123,14 @@ def boolean_to_integer(df, imputer=None, fit_mode=False):
 
     bool_cols = [
         'ip.flags.df',
-        'pfcp. ue_ip_address_flag. sd',
+        'pfcp.ue_ip_address_flag.sd',
         'pfcp.f_teid_flags.ch',
         'pfcp.f_teid_flags.ch_id',
         'pfcp.f_teid_flags.v6',
-        'pfcp.apply_action. buff',
+        'pfcp.apply_action.buff',
         'pfcp.apply_action.drop',
         'pfcp.apply_action.forw',
-        'pfcp. apply_action.nocp',
+        'pfcp.apply_action.nocp',
         'pfcp.s'
     ]
     existing_bool_cols = [col for col in bool_cols if col in df.columns]
@@ -193,6 +195,7 @@ def hex_to_integer(df):
     df = df.copy()
     hex_cols = ['ip.dsfield',
                 'ip.flags',
+                'ip.id',
                 'ip.checksum',
                 'udp.checksum',
                 'pfcp.f_teid.teid',
@@ -200,6 +203,10 @@ def hex_to_integer(df):
                 'pfcp.outer_hdr_creation.teid',
                 'pfcp.seid']
     for col in hex_cols:
+        # Check if column exists in dataframe, it may not be dropped before if it was constant
+        if col not in df.columns:
+            logger.debug(f"⏭️ Skipping {col} (not in dataframe)")
+            continue
         try:
             df[col] = df[col].apply(lambda x: int(x, 16) if isinstance(x, str) and x.startswith('0x') else x)
             logger.debug(f"Converted hexadecimal column to integer: {col}")
@@ -234,6 +241,106 @@ def ip_to_integer(df):
     return df
 
 
+def impute_pfcp_fields(df, fit_mode=False, imputer_counters=None, imputer_flags=None):
+    """
+    Impute PFCP-specific columns with semantically appropriate strategies.
+
+    Strategy:
+    - Counters/measurements (volume, duration) → median (robust)
+    - Flags/types (precedence, pdn_type, source_interface) → most_frequent
+    - IDs (IMEI, TEID, SEID) → most_frequent
+    - Timestamps → median (or 0 if all NaN)
+    - IP addresses → median (already converted to int)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input dataframe.
+    fit_mode : bool
+        If True, fit imputers (training mode).
+    imputer_counters : SimpleImputer or None
+        Pre-fitted imputer for counter fields.
+    imputer_flags : SimpleImputer or None
+        Pre-fitted imputer for flag/categorical fields.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        Dataframe with PFCP fields imputed.
+    imputer_counters : SimpleImputer (only if fit_mode=True)
+        Fitted imputer for counters.
+    imputer_flags : SimpleImputer (only if fit_mode=True)
+        Fitted imputer for flags.
+    """
+    df = df.copy()
+
+    # ============================================================
+    # PFCP FIELD CATEGORIZATION
+    # ============================================================
+
+    # Counters/measurements → median strategy
+    counter_cols = [
+        'pfcp.duration_measurement',
+        'pfcp.volume_measurement.tovol',
+        'pfcp.volume_measurement.tonop',
+        'pfcp.volume_measurement.dlvol',
+        'pfcp.volume_measurement.dlnop',
+        'pfcp.response_time',
+        'pfcp.f_teid.teid',
+        'pfcp.outer_hdr_creation.teid',
+        'pfcp.outer_hdr_creation.ipv4',
+        'pfcp.seid',
+        'pfcp.f_teid.ipv4_addr',
+        'pfcp.f_seid.ipv4',
+        'pfcp.node_id_ipv4',
+        'pfcp.ue_ip_addr_ipv4',
+    ]
+
+    # Flags/categorical → most_frequent strategy
+    flag_cols = [
+        'pfcp.user_id.imei',
+        'pfcp.precedence',
+        'pfcp.pdn_type',
+        'pfcp.flow_desc_len',
+        'pfcp.source_interface',
+        'pfcp.dst_interface',
+        'pfcp.node_id_type',
+        'pfcp.pdr_id',
+        'pfcp.cause',
+        'pfcp.response_to',
+        'pfcp.ie_type',
+        'pfcp.ie_len',
+    ]
+
+    # Filter to existing columns
+    counter_cols = [c for c in counter_cols if c in df.columns]
+    flag_cols = [c for c in flag_cols if c in df.columns]
+    # IMPUTATION
+    if fit_mode:
+        # TRAINING: Fit imputers
+        if counter_cols:
+            imputer_counters = SimpleImputer(strategy='median')
+            df[counter_cols] = imputer_counters.fit_transform(df[counter_cols])
+            logger.info(f"Fitted PFCP counter imputer on {len(counter_cols)} columns")
+        if flag_cols:
+            imputer_flags = SimpleImputer(strategy='most_frequent')
+            df[flag_cols] = imputer_flags.fit_transform(df[flag_cols])
+            logger.info(f"Fitted PFCP flag imputer on {len(flag_cols)} columns")
+
+        return df, imputer_counters, imputer_flags
+
+    else:
+        # TEST: Apply pre-fitted imputers
+        if counter_cols and imputer_counters is not None:
+            df[counter_cols] = imputer_counters.transform(df[counter_cols])
+            logger.info(f"Applied PFCP counter imputer to {len(counter_cols)} columns")
+        if flag_cols and imputer_flags is not None:
+            df[flag_cols] = imputer_flags.transform(df[flag_cols])
+            logger.info(f"Applied PFCP flag imputer to {len(flag_cols)} columns")
+
+        return df
+
+
 # Preprocessing pipeline for training data
 def preprocessing_pipeline_train(
     df_train: pd.DataFrame,
@@ -255,6 +362,8 @@ def preprocessing_pipeline_train(
     df_train_processed = drop_udp_columns(df_train_processed)
     # Drop PFCP columns
     df_train_processed = drop_pfcp_columns(df_train_processed)
+    # Drop constant IP columns
+    df_train_processed = drop_constant_ip_columns(df_train_processed)
     # Convert boolean columns to integer
     df_train_processed, boolean_imputer = boolean_to_integer(df_train_processed, fit_mode=True)
     os.makedirs("preprocessing/models_preprocessing_new", exist_ok=True)
@@ -265,8 +374,15 @@ def preprocessing_pipeline_train(
     df_train_processed = hex_to_integer(df_train_processed)
     # Convert IP address columns to integer
     df_train_processed = ip_to_integer(df_train_processed)
-    # Drop constant IP columns
-    df_train_processed = drop_constant_ip_columns(df_train_processed)
+
+    df_train_processed, pfcp_counter_imputer, pfcp_flag_imputer = impute_pfcp_fields(
+        df_train_processed,
+        fit_mode=True
+    )
+    # SAVE PFCP imputers
+    dump(pfcp_counter_imputer, "preprocessing/models_preprocessing_new/pfcp_counter_imputer.pkl")
+    dump(pfcp_flag_imputer, "preprocessing/models_preprocessing_new/pfcp_flag_imputer.pkl")
+    logger.info("💾 Saved PFCP imputers")
 
     # Saving final processed training data
     output_path = os.path.join(output_dir, "train_dataset_processed.csv")
@@ -296,6 +412,14 @@ def preprocessing_pipeline_test(
     df_test_processed = drop_udp_columns(df_test_processed)
     # Drop PFCP columns
     df_test_processed = drop_pfcp_columns(df_test_processed)
+    # Drop constant IP columns -> No sense if we have a single sample
+    # df_test_processed = drop_constant_ip_columns(df_test_processed)
+    # In test case it's better to recover the dropped constant IP columns from training if any
+    if os.path.exists("preprocessing/models_preprocessing_new/constant_ip_columns_dropped.json"):
+        with open("preprocessing/models_preprocessing_new/constant_ip_columns_dropped.json", "r") as f:
+            constant_ip_col_to_drop = json.load(f)
+        df_test_processed = df_test_processed.drop(columns=constant_ip_col_to_drop, errors='ignore')
+        logger.debug(f"Dropped constant IP-related columns from test data: {constant_ip_col_to_drop}")
     # Convert boolean columns to integer
     if not os.path.exists("preprocessing/models_preprocessing_new/boolean_imputer.pkl"):
         raise FileNotFoundError("❌ boolean_imputer.pkl not found!  Run training first.")
@@ -311,14 +435,21 @@ def preprocessing_pipeline_test(
     df_test_processed = hex_to_integer(df_test_processed)
     # Convert IP address columns to integer
     df_test_processed = ip_to_integer(df_test_processed)
-    # Drop constant IP columns -> No sense if we have a single sample
-    # df_test_processed = drop_constant_ip_columns(df_test_processed)
-    # In test case it's better to recover the dropped constant IP columns from training if any
-    if os.path.exists("preprocessing/models_preprocessing_new/constant_ip_columns_dropped.json"):
-        with open("preprocessing/models_preprocessing_new/constant_ip_columns_dropped.json", "r") as f:
-            constant_ip_col_to_drop = json.load(f)
-        df_test_processed = df_test_processed.drop(columns=constant_ip_col_to_drop, errors='ignore')
-        logger.debug(f"Dropped constant IP-related columns from test data: {constant_ip_col_to_drop}")
+
+    if not os.path.exists("preprocessing/models_preprocessing_new/pfcp_counter_imputer.pkl"):
+        raise FileNotFoundError("❌ pfcp_counter_imputer.pkl not found!")
+    if not os.path.exists("preprocessing/models_preprocessing_new/pfcp_flag_imputer.pkl"):
+        raise FileNotFoundError("❌ pfcp_flag_imputer.pkl not found!")
+
+    pfcp_counter_imputer = load("preprocessing/models_preprocessing_new/pfcp_counter_imputer.pkl")
+    pfcp_flag_imputer = load("preprocessing/models_preprocessing_new/pfcp_flag_imputer.pkl")
+
+    df_test_processed = impute_pfcp_fields(
+        df_test_processed,
+        fit_mode=False,
+        imputer_counters=pfcp_counter_imputer,
+        imputer_flags=pfcp_flag_imputer
+    )
 
     # Saving final processed training data
     output_path = os.path.join(output_dir, "test_dataset_processed.csv")
