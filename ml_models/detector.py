@@ -51,7 +51,7 @@ class Detector(BaseEstimator):
         self, df_test: pd.DataFrame, skip_preprocess: bool = False
     ):
         X = df_test.copy()
-        X = self._preprocessor.test(X, "tmp", skip_preprocess)
+        X = self._preprocessor.test(X, None, skip_preprocess)
         X = X[sorted(X.columns)]
         return self._detector.decision_function(X.values)
 
