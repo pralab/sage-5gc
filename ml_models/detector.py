@@ -7,20 +7,16 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from preprocessing import Preprocessor
 
 
-class Detector(BaseEstimator, ClassifierMixin):
-    def __init__(
-        self,
-        detector_class=BaseDetector,
-        **detector_params,
-    ) -> None:
+class Detector(BaseEstimator):
+    """"""
+
+    def __init__(self, detector_class: BaseDetector, **detector_params) -> None:
         self.detector_class = detector_class
-        for k, v in detector_params.items():
-            setattr(self, k, v)
         self.detector_params = detector_params
-        self.detector = None
-        self.preprocessor = Preprocessor()
+
+        self._preprocessor = Preprocessor()
         self._trained = False
-        self._feature_columns = None
+        self._detector: BaseDetector = self.detector_class(**self.detector_params)
 
     def fit(
         self,
@@ -28,22 +24,13 @@ class Detector(BaseEstimator, ClassifierMixin):
         output_dir: str | None,
         skip_preprocess: bool = False,
     ):
-        df = self.preprocessor.train(df_train, output_dir, skip_preprocess)
-        X_ = df.drop(columns=["ip.opt.time_stamp"], errors="ignore")
-        X_ = X_.copy()
-        X_ = X_[sorted(X_.columns)]
-        self._feature_columns = X_.columns.tolist()
+        df = self._preprocessor.train(df_train, output_dir, skip_preprocess)
+        X = df.copy()
+        X = X[sorted(X.columns)]
 
-        # Build detector with params set as attributes
-        detector_kwargs = {}
-        sig = inspect.signature(self.detector_class.__init__)
-        for param in sig.parameters.values():
-            if param.name != "self" and hasattr(self, param.name):
-                detector_kwargs[param.name] = getattr(self, param.name)
-
-        self.detector = self.detector_class(**detector_kwargs)
-        self.detector.fit(X_.values)
+        self._detector.fit(X.values)
         self._trained = True
+
         return self
 
     def predict(
@@ -55,40 +42,31 @@ class Detector(BaseEstimator, ClassifierMixin):
         if not self._trained:
             raise ValueError("Model not trained, call fit() before predict().")
 
-        df = self.preprocessor.test(df_test, output_dir, skip_preprocess)
+        df = self._preprocessor.test(df_test, output_dir, skip_preprocess)
         X = df.copy()
-        X = df.drop(columns=["ip.opt.time_stamp"], errors="ignore")
-        if self._feature_columns is not None:
-            X = X[self._feature_columns]
-        return self.detector.predict(X.values)
+        X = X[sorted(X.columns)]
+        return self._detector.predict(X.values)
 
     def decision_function(
         self, df_test: pd.DataFrame, sample_idx: int, skip_preprocess: bool = False
     ):
-        df = self.preprocessor.test(df_test, "tmp", skip_preprocess)
+        df = self._preprocessor.test(df_test, "tmp", skip_preprocess)
         X = df.copy()
-        X = df.drop("ip.opt.time_stamp", axis=1, errors="ignore")
-        if self._feature_columns is not None:
-            X = X[self._feature_columns]
+        X = X[sorted(X.columns)]
         X_sample = X.iloc[[sample_idx]]
-        return self.detector.decision_function(X_sample.values)[0]
+        return self._detector.decision_function(X_sample.values)[0]
 
-    def get_params(self, deep=True):
-        out = {"detector_class": self.detector_class}
-        # Aggiungi tutti i parametri detector come attributi
-        out.update(self.detector_params)
-        # Espone anche quelli settati come attributi individuali
-        sig = inspect.signature(self.detector_class.__init__)
-        for param in sig.parameters.values():
-            if param.name != "self" and hasattr(self, param.name):
-                out[param.name] = getattr(self, param.name)
-        return out
+    def get_params(self, deep: bool = True) -> dict:
+        params = {"detector_class": self.detector_class}
+        params.update(self.detector_params)
+        return params
 
-    def set_params(self, **params):
-        # aggiorna detector_class e attributi
+    def set_params(self, **params) -> "Detector":
         if "detector_class" in params:
             self.detector_class = params.pop("detector_class")
-        for k, v in params.items():
-            setattr(self, k, v)
-            self.detector_params[k] = v
+
+        self.detector_params.update(params)
+
+        self._detector = self.detector_class(**self.detector_params)
+        self._trained = False
         return self

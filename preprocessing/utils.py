@@ -87,8 +87,7 @@ def drop_constant_columns(df):
         logger.debug(f"Dropping constant columns: {constant_col_to_drop}")
 
         with (
-            Path(__file__).parent
-            / "models_preprocessing/constant_columns_dropped.json"
+            Path(__file__).parent / "models_preprocessing/constant_columns_dropped.json"
         ).open("w") as f:
             json.dump(constant_col_to_drop, f, indent=4)
 
@@ -155,7 +154,9 @@ def timestamp_to_numeric(df):
     ]
     for col in timestamp_cols:
         try:
-            df[col] = pd.to_datetime(df[col], errors="coerce").astype("int64") // 10**9
+            df[col] = (
+                pd.to_datetime(df[col], errors="coerce").astype("int64") // 10**9
+            )
             logger.debug(f"Converted timestamp column to integer: {col}")
         except Exception as e:
             logger.warning(f"Could not convert column {col} to integer timestamp: {e}")

@@ -207,7 +207,7 @@ def validation_scorer(estimator: Detector, X_unused: pd.DataFrame) -> float:
 PARAM_GRID_MODELS = {
     "ABOD": {
         "n_neighbors": [1, 3, 5, 10, 20, 35, 50, 100],
-        "contamination": [0.05, 0.1, 0.2],
+        "contamination": [0.001],
     },
     "HBOS": {"n_bins": [5, 10, 25, 50, 100], "contamination": [0.05, 0.1, 0.2]},
     "IForest": {
@@ -215,76 +215,76 @@ PARAM_GRID_MODELS = {
         "max_samples": [0.1, 0.5, 0.7, 1.0],
         "max_features": [0.5, 0.75, 1.0],
         "random_state": [42],
-        "contamination": [0.05, 0.1, 0.2],
+        "contamination": [0.001],
     },
-    # "KNN": {
-    #     "n_neighbors": [3, 5, 11, 20, 35, 60],
-    #     "method": ["largest", "mean", "median"],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
-    # "LOF": {"n_neighbors": [3, 5, 11, 20, 35, 50], "contamination": [0.05, 0.1, 0.2]},
-    # "CBLOF": {
-    #     "check_estimator": [False],
-    #     "random_state": [42],
-    #     "alpha": [0.1, 0.5, 0.9],
-    #     "beta": [2, 4, 7, 10, 20],
-    #     "clustering_estimator": [KMeans(n_clusters=2), KMeans(n_clusters=5)],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
-    # "FeatureBagging": {
-    #     "base_estimator": [
-    #         LOF(n_neighbors=5),
-    #         LOF(n_neighbors=15),
-    #         LOF(n_neighbors=35),
-    #         LOF(n_neighbors=50),
-    #     ],
-    #     "random_state": [42],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
-    # "MCD": {"random_state": [42], "contamination": [0.05, 0.1, 0.2]},
-    # "OCSVM": {
-    #     "kernel": ["rbf", "linear", "sigmoid", "poly"],
-    #     "gamma": [0.001, 0.01, 0.1, 1, "auto"],
-    #     "nu": [0.05, 0.1, 0.2, 0.35],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
-    # "PCA": {
-    #     "n_components": [1, 5, 10, 20, 35],
-    #     "random_state": [42],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
-    # "LSCP": {
-    #     "detector_list": [
-    #         LOF(n_neighbors=5),
-    #         LOF(n_neighbors=10),
-    #         LOF(n_neighbors=15),
-    #         LOF(n_neighbors=20),
-    #         LOF(n_neighbors=25),
-    #         LOF(n_neighbors=30),
-    #         LOF(n_neighbors=35),
-    #         LOF(n_neighbors=40),
-    #         LOF(n_neighbors=45),
-    #         LOF(n_neighbors=50),
-    #     ],
-    #     "random_state": [42],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
-    # "INNE": {
-    #     "max_samples": [2, 10, 50],
-    #     "contamination": [0.05, 0.1, 0.2],
-    #     "random_state": [42],
-    # },
-    # "GMM": {
-    #     "n_components": [1, 2, 5, 10, 20],
-    #     "covariance_type": ["full", "tied", "diag", "spherical"],
-    #     "random_state": [42],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
-    # "KDE": {
-    #     "kernel": ["gaussian", "tophat", "epanechnikov", "exponential"],
-    #     "bandwidth": [0.1, 0.5, 1, 2, 5],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
+    "KNN": {
+        "n_neighbors": [3, 5, 11, 20, 35, 60],
+        "method": ["largest", "mean", "median"],
+        "contamination": [0.001],
+    },
+    "LOF": {"n_neighbors": [3, 5, 11, 20, 35, 50], "contamination": [0.05, 0.1, 0.2]},
+    "CBLOF": {
+        "check_estimator": [False],
+        "random_state": [42],
+        "alpha": [0.1, 0.5, 0.9],
+        "beta": [2, 4, 7, 10, 20],
+        "clustering_estimator": [KMeans(n_clusters=2), KMeans(n_clusters=5)],
+        "contamination": [0.001],
+    },
+    "FeatureBagging": {
+        "base_estimator": [
+            LOF(n_neighbors=5),
+            LOF(n_neighbors=15),
+            LOF(n_neighbors=35),
+            LOF(n_neighbors=50),
+        ],
+        "random_state": [42],
+        "contamination": [0.001],
+    },
+    "MCD": {"random_state": [42], "contamination": [0.001],},
+    "OCSVM": {
+        "kernel": ["rbf", "linear", "sigmoid", "poly"],
+        "gamma": [0.001, 0.01, 0.1, 1, "auto"],
+        "nu": [0.05, 0.1, 0.2, 0.35],
+        "contamination": [0.001],
+    },
+    "PCA": {
+        "n_components": [1, 5, 10, 20, 35],
+        "random_state": [42],
+        "contamination": [0.001],
+    },
+    "LSCP": {
+        "detector_list": [
+            LOF(n_neighbors=5),
+            LOF(n_neighbors=10),
+            LOF(n_neighbors=15),
+            LOF(n_neighbors=20),
+            LOF(n_neighbors=25),
+            LOF(n_neighbors=30),
+            LOF(n_neighbors=35),
+            LOF(n_neighbors=40),
+            LOF(n_neighbors=45),
+            LOF(n_neighbors=50),
+        ],
+        "random_state": [42],
+        "contamination": [0.001],
+    },
+    "INNE": {
+        "max_samples": [2, 10, 50],
+        "random_state": [42],
+        "contamination": [0.001],
+    },
+    "GMM": {
+        "n_components": [1, 2, 5, 10, 20],
+        "covariance_type": ["full", "tied", "diag", "spherical"],
+        "random_state": [42],
+        "contamination": [0.001],
+    },
+    "KDE": {
+        "kernel": ["gaussian", "tophat", "epanechnikov", "exponential"],
+        "bandwidth": [0.1, 0.5, 1, 2, 5],
+        "contamination": [0.001],
+    },
     # "LMDD": {
     #     "random_state": [42],
     #     "contamination": [0.05, 0.1, 0.2],
@@ -337,7 +337,7 @@ logger.debug(f"Validation set size: {len(X_val)} - Test size finale: {len(X_ts)}
 # [Step 2.1] Preprocess train and test datasets
 # ---------------------------------------------
 processor = Preprocessor()
-df_train = processor.train(df_train, output_dir=PREPROCESS_DIR)
+df_train = processor.train(X_tr, output_dir=PREPROCESS_DIR)
 df_test = processor.test(X_ts, output_dir=PREPROCESS_DIR)
 
 # ---------------------------------------------
@@ -354,10 +354,8 @@ else:
 # --------------------------------------
 results = []
 for model_name, param_grid in PARAM_GRID_MODELS.items():
-    # Mapping string name -> True class
-    model_class = eval(model_name)
     logger.info(f"Model: {model_name}")
-    # Custom paths per-model
+
     model_file = f"{MODEL_DIR}/{model_name}.pkl"
     test_result_file = f"{RESULTS_DIR}/{model_name}.json"
 
@@ -366,85 +364,56 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
         logger.info(f"Test results detected for {model_name}, skipping to next model.")
         continue
 
-    # If model already trained, load
-    if os.path.exists(model_file):
-        logger.info(f"Model for {model_name} already trained and saved. Loading...")
-        try:
-            base_detector: Detector = joblib.load(model_file)
-            logger.debug(f"Loaded {model_name} from {model_file}")
-            best_params = all_best_params[model_name]
-            logger.debug(f"Best params loaded from cache: {best_params}")
-        except Exception as e:
-            raise ValueError(f"Model load failed for {model_name}: {e}")
+    if model_name in all_best_params:
+        best_params = all_best_params[model_name]
+        for k, v in best_params.items():
+            if k in ["clustering_estimator", "base_estimator", "detector_list"]:
+                best_params[k] = restore_estimator(v)
+                logger.debug(f"Best params loaded from cache: {best_params}")
 
-        # Always perform the test & save results on the final test split
+        base_detector = Detector(detector_class=eval(model_name), **best_params)
+
+        logger.info(f"Training {model_name} with cached best params...")
+        base_detector.fit(X_tr, output_dir=PREPROCESS_DIR, skip_preprocess=True)
+
         y_pred = base_detector.predict(
             X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
         )
-        compute_and_save_metrics(
-            y_ts, y_pred, test_result_file, best_params, model_name
-        )
-
     else:
-        # Check best params cache, fast train
-        if model_name in all_best_params:
-            best_params = all_best_params[model_name]
-            for k, v in best_params.items():
-                if k in ["clustering_estimator", "base_estimator", "detector_list"]:
-                    best_params[k] = restore_estimator(v)
-                    logger.debug(f"Best params loaded from cache: {best_params}")
+        grid = GridSearchCV(
+            Detector(detector_class=eval(model_name)),
+            param_grid,
+            scoring=validation_scorer,
+            cv=3,
+            refit=True,
+            n_jobs=8,
+        )
+        logger.info(f"Performing Grid Search for {model_name}...")
 
-            base_detector = Detector(detector_class=model_class, **best_params)
+        try:
+            grid.fit(
+                X_tr,
+                output_dir=PREPROCESS_DIR,
+                skip_preprocess=True,
+            )
 
-            logger.info(f"Training {model_name} with cached best params...")
-            base_detector.fit(X_tr, output_dir=PREPROCESS_DIR, skip_preprocess=True)
+            logger.info(f"Best params computed: {grid.best_params_}")
+            all_best_params[model_name] = grid.best_params_
+            serializable_params = {
+                m: make_json_serializable(p) for m, p in all_best_params.items()
+            }
+            with open(BEST_PARAMS_PATH, "w") as f:
+                json.dump(serializable_params, f, indent=2)
 
-            y_pred = base_detector.predict(
+            y_pred = grid.best_estimator_.predict(
                 X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
             )
+        except Exception as e:
+            logger.info(f"Grid Search failed for {model_name}: {e}")
+            continue
 
-            joblib.dump(base_detector, model_file)
-            logger.debug(f"Model saved to: {model_file}")
-            compute_and_save_metrics(
-                y_ts, y_pred, test_result_file, best_params, model_name
-            )
-
-        else:
-            base_detector = Detector(detector_class=model_class)
-            grid = GridSearchCV(
-                base_detector,
-                param_grid,
-                scoring=validation_scorer,
-                cv=3,
-                refit=True,
-                n_jobs=8,
-            )
-            logger.info(f"Performing Grid Search for {model_name}...")
-
-            try:
-                grid.fit(
-                    X_tr,
-                    output_dir=PREPROCESS_DIR,
-                    skip_preprocess=True,
-                )
-
-                logger.info(f"Best params computed: {grid.best_params_}")
-                all_best_params[model_name] = grid.best_params_
-                serializable_params = {
-                    m: make_json_serializable(p) for m, p in all_best_params.items()
-                }
-                with open(BEST_PARAMS_PATH, "w") as f:
-                    json.dump(serializable_params, f, indent=2)
-
-                y_pred = grid.best_estimator_.predict(
-                    X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
-                )
-
-                joblib.dump(grid.best_estimator_, model_file)
-                logger.debug(f"Model saved to: {model_file}")
-                compute_and_save_metrics(
-                    y_ts, y_pred, test_result_file, grid.best_params_, model_name
-                )
-            except Exception as e:
-                logger.info(f"Grid Search failed for {model_name}: {e}")
-                continue
+    joblib.dump(base_detector, model_file)
+    logger.debug(f"Model saved to: {model_file}")
+    compute_and_save_metrics(
+        y_ts, y_pred, test_result_file, best_params, model_name
+    )
