@@ -1,8 +1,7 @@
-import inspect
-
+import numpy as np
 import pandas as pd
 from pyod.models.base import BaseDetector
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator
 
 from preprocessing import Preprocessor
 
@@ -23,7 +22,7 @@ class Detector(BaseEstimator):
         df_train: pd.DataFrame,
         output_dir: str | None,
         skip_preprocess: bool = False,
-    ):
+    ) -> "Detector":
         df = self._preprocessor.train(df_train, output_dir, skip_preprocess)
         X = df.copy()
         X = X[sorted(X.columns)]
@@ -38,7 +37,7 @@ class Detector(BaseEstimator):
         df_test: pd.DataFrame,
         output_dir: str | None,
         skip_preprocess: bool = False,
-    ):
+    ) -> tuple[np.ndarray, np.ndarray]:
         if not self._trained:
             raise ValueError("Model not trained, call fit() before predict().")
 
@@ -49,7 +48,7 @@ class Detector(BaseEstimator):
 
     def decision_function(
         self, df_test: pd.DataFrame, skip_preprocess: bool = False
-    ):
+    ) -> np.ndarray:
         X = df_test.copy()
         X = self._preprocessor.test(X, None, skip_preprocess)
         X = X[sorted(X.columns)]
