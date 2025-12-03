@@ -1,8 +1,8 @@
 {
   "model": "HBOS",
   "best_params": {
-    "contamination": 0.001,
-    "n_neighbors": 100
+    "contamination": 0.05,
+    "n_bins": 25
   },
   "accuracy": 0.8240137531668477,
   "f1": 0.6773926024216288,

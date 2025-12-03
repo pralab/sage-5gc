@@ -2,7 +2,8 @@
   "model": "PCA",
   "best_params": {
     "contamination": 0.001,
-    "n_neighbors": 100
+    "n_components": 1,
+    "random_state": 42
   },
   "accuracy": 0.8165038002171553,
   "f1": 0.5106177606177607,

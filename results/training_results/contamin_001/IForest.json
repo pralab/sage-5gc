@@ -2,7 +2,10 @@
   "model": "IForest",
   "best_params": {
     "contamination": 0.001,
-    "n_neighbors": 100
+    "max_features": 1.0,
+    "max_samples": 1.0,
+    "n_estimators": 25,
+    "random_state": 42
   },
   "accuracy": 0.9005609844372059,
   "f1": 0.6381297332894303,

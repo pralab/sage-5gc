@@ -2,7 +2,8 @@
   "model": "KNN",
   "best_params": {
     "contamination": 0.001,
-    "n_neighbors": 100
+    "method": "largest",
+    "n_neighbors": 20
   },
   "accuracy": 0.9045421643141512,
   "f1": 0.6672973825291706,

@@ -207,27 +207,27 @@ def validation_scorer(estimator: Detector, X_unused: pd.DataFrame) -> float:
 PARAM_GRID_MODELS = {
     "ABOD": {
         "n_neighbors": [1, 3, 5, 10, 20, 35, 50, 100],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     "HBOS": {
         "n_bins": [5, 10, 25, 50, 100],
-        "contamination": [0.01]
+        "contamination": [0.001]
     },
     "IForest": {
         "n_estimators": [25, 50, 100, 200],
         "max_samples": [0.1, 0.5, 0.7, 1.0],
         "max_features": [0.5, 0.75, 1.0],
         "random_state": [42],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     "KNN": {
         "n_neighbors": [3, 5, 11, 20, 35, 60],
         "method": ["largest", "mean", "median"],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     "LOF": {
         "n_neighbors": [3, 5, 11, 20, 35, 50],
-        "contamination": [0.01]
+        "contamination": [0.001]
     },
     "CBLOF": {
         "check_estimator": [False],
@@ -235,7 +235,7 @@ PARAM_GRID_MODELS = {
         "alpha": [0.1, 0.5, 0.9],
         "beta": [2, 4, 7, 10, 20],
         "clustering_estimator": [KMeans(n_clusters=2), KMeans(n_clusters=5)],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     "FeatureBagging": {
         "base_estimator": [
@@ -247,17 +247,20 @@ PARAM_GRID_MODELS = {
         "random_state": [42],
         "contamination": [0.01],
     },
-    "MCD": {"random_state": [42], "contamination": [0.001],},
+    "MCD": {
+        "random_state": [42],
+        "contamination": [0.001],
+    },
     "OCSVM": {
         "kernel": ["rbf", "linear", "sigmoid", "poly"],
         "gamma": [0.001, 0.01, 0.1, 1, "auto"],
         "nu": [0.05, 0.1, 0.2, 0.35],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     "PCA": {
         "n_components": [1, 5, 10, 20, 35],
         "random_state": [42],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     # "LSCP": {
     #     "detector_list": [
@@ -278,18 +281,18 @@ PARAM_GRID_MODELS = {
     "INNE": {
         "max_samples": [2, 10, 50],
         "random_state": [42],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     "GMM": {
         "n_components": [1, 2, 5, 10, 20],
         "covariance_type": ["full", "tied", "diag", "spherical"],
         "random_state": [42],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     "KDE": {
         #"kernel": ["gaussian", "tophat", "epanechnikov", "exponential"],
         "bandwidth": [0.1, 0.5, 1, 2, 5],
-        "contamination": [0.01],
+        "contamination": [0.001],
     },
     # "LMDD": {
     #     "random_state": [42],
@@ -396,29 +399,29 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
         )
         logger.info(f"Performing Grid Search for {model_name}...")
 
-        # try:
-        grid.fit(
-            X_tr,
-            output_dir=PREPROCESS_DIR,
-            skip_preprocess=True,
-        )
-        logger.info(f"Best params computed: {grid.best_params_}")
+        try:
+            grid.fit(
+                X_tr,
+                output_dir=PREPROCESS_DIR,
+                skip_preprocess=True,
+            )
+            logger.info(f"Best params computed: {grid.best_params_}")
 
-        best_params = grid.best_params_
-        all_best_params[model_name] = best_params
-        serializable_params = {
-            m: make_json_serializable(p) for m, p in all_best_params.items()
-        }
-        with open(BEST_PARAMS_PATH, "w") as f:
-            json.dump(serializable_params, f, indent=2)
+            best_params = grid.best_params_
+            all_best_params[model_name] = best_params
+            serializable_params = {
+                m: make_json_serializable(p) for m, p in all_best_params.items()
+            }
+            with open(BEST_PARAMS_PATH, "w") as f:
+                json.dump(serializable_params, f, indent=2)
 
-        detector = grid.best_estimator_
-        y_pred = detector.predict(
-            X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
-        )
-        # except Exception as e:
-        #     logger.info(f"Grid Search failed for {model_name}: {e}")
-        #     continue
+            detector = grid.best_estimator_
+            y_pred = detector.predict(
+                X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
+            )
+        except Exception as e:
+            logger.info(f"Grid Search failed for {model_name}: {e}")
+            continue
 
     joblib.dump(detector, model_file)
     logger.debug(f"Model saved to: {model_file}")

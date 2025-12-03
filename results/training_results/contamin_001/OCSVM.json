@@ -2,7 +2,9 @@
   "model": "OCSVM",
   "best_params": {
     "contamination": 0.001,
-    "n_neighbors": 100
+    "gamma": 0.001,
+    "kernel": "rbf",
+    "nu": 0.05
   },
   "accuracy": 0.8134274339486066,
   "f1": 0.0,

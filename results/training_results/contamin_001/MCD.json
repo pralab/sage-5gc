@@ -2,7 +2,7 @@
   "model": "MCD",
   "best_params": {
     "contamination": 0.001,
-    "n_neighbors": 100
+    "random_state": 42
   },
   "accuracy": 0.8534201954397395,
   "f1": 0.35303514376996803,

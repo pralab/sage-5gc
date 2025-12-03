@@ -48,13 +48,12 @@ class Detector(BaseEstimator):
         return self._detector.predict(X.values)
 
     def decision_function(
-        self, df_test: pd.DataFrame, sample_idx: int, skip_preprocess: bool = False
+        self, df_test: pd.DataFrame, skip_preprocess: bool = False
     ):
-        df = self._preprocessor.test(df_test, "tmp", skip_preprocess)
-        X = df.copy()
+        X = df_test.copy()
+        X = self._preprocessor.test(X, "tmp", skip_preprocess)
         X = X[sorted(X.columns)]
-        X_sample = X.iloc[[sample_idx]]
-        return self._detector.decision_function(X_sample.values)[0]
+        return self._detector.decision_function(X.values)
 
     def get_params(self, deep: bool = True) -> dict:
         params = {"detector_class": self.detector_class}

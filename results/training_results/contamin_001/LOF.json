@@ -1,8 +1,8 @@
 {
   "model": "LOF",
   "best_params": {
-    "contamination": 0.001,
-    "n_neighbors": 100
+    "contamination": 0.05,
+    "n_neighbors": 3
   },
   "accuracy": 0.8615635179153095,
   "f1": 0.5723868082727781,
