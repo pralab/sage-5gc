@@ -82,25 +82,25 @@ def make_json_serializable(d: dict) -> dict:
 
 
 def compute_and_save_metrics(
-    y_test_bin: np.ndarray, pred_test: np.ndarray, test_result_file: str
+    y_true: np.ndarray, y_pred: np.ndarray, test_result_file: str
 ) -> None:
     """
     Compute and log metrics, save to results.
 
     Parameters
     ----------
-    y_test_bin : np.ndarray
+    y_true : np.ndarray
       True binary labels.
-    pred_test : np.ndarray
+    y_pred : np.ndarray
         Predicted labels.
     test_result_file : str
         Path to save results JSON.
     """
-    acc = (y_test_bin == pred_test).mean()
-    f1 = f1_score(y_test_bin, pred_test)
-    roc = roc_auc_score(y_test_bin, pred_test)
-    prec = precision_score(y_test_bin, pred_test)
-    rec = recall_score(y_test_bin, pred_test)
+    acc = (y_true == y_pred).mean()
+    f1 = f1_score(y_true, y_pred)
+    roc = roc_auc_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred)
+    rec = recall_score(y_true, y_pred)
     logger.info(f"Accuracy   : {acc:.3f}")
     logger.info(f"F1         : {f1:.3f}")
     logger.info(f"ROC AUC    : {roc:.3f}")
@@ -201,11 +201,11 @@ def validation_scorer(estimator: object, X_unused: pd.DataFrame) -> float:
 
 # --- LIST OF CONFIGURATIONS ---
 PARAM_GRID_MODELS = {
-    "ABOD": {
-        "n_neighbors": [1, 3, 5, 10, 20, 35, 50, 100],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "HBOS": {"n_bins": [5, 10, 25, 50, 100], "contamination": [0.05, 0.1, 0.2]},
+    # "ABOD": {
+    #     "n_neighbors": [1, 3, 5, 10, 20, 35, 50, 100],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "HBOS": {"n_bins": [5, 10, 25, 50, 100], "contamination": [0.05, 0.1, 0.2]},
     "IForest": {
         "n_estimators": [25, 50, 100, 200],
         "max_samples": [0.1, 0.5, 0.7, 1.0],
@@ -213,79 +213,79 @@ PARAM_GRID_MODELS = {
         "random_state": [42],
         "contamination": [0.05, 0.1, 0.2],
     },
-    "KNN": {
-        "n_neighbors": [3, 5, 11, 20, 35, 60],
-        "method": ["largest", "mean", "median"],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "LOF": {"n_neighbors": [3, 5, 11, 20, 35, 50], "contamination": [0.05, 0.1, 0.2]},
-    "CBLOF": {
-        "check_estimator": [False],
-        "random_state": [42],
-        "alpha": [0.1, 0.5, 0.9],
-        "beta": [2, 4, 7, 10, 20],
-        "clustering_estimator": [KMeans(n_clusters=2), KMeans(n_clusters=5)],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "FeatureBagging": {
-        "base_estimator": [
-            LOF(n_neighbors=5),
-            LOF(n_neighbors=15),
-            LOF(n_neighbors=35),
-            LOF(n_neighbors=50),
-        ],
-        "random_state": [42],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "MCD": {"random_state": [42], "contamination": [0.05, 0.1, 0.2]},
-    "OCSVM": {
-        "kernel": ["rbf", "linear", "sigmoid", "poly"],
-        "gamma": [0.001, 0.01, 0.1, 1, "auto"],
-        "nu": [0.05, 0.1, 0.2, 0.35],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "PCA": {
-        "n_components": [1, 5, 10, 20, 35],
-        "random_state": [42],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "LSCP": {
-        "detector_list": [
-            LOF(n_neighbors=5),
-            LOF(n_neighbors=10),
-            LOF(n_neighbors=15),
-            LOF(n_neighbors=20),
-            LOF(n_neighbors=25),
-            LOF(n_neighbors=30),
-            LOF(n_neighbors=35),
-            LOF(n_neighbors=40),
-            LOF(n_neighbors=45),
-            LOF(n_neighbors=50),
-        ],
-        "random_state": [42],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "INNE": {
-        "max_samples": [2, 10, 50],
-        "contamination": [0.05, 0.1, 0.2],
-        "random_state": [42],
-    },
-    "GMM": {
-        "n_components": [1, 2, 5, 10, 20],
-        "covariance_type": ["full", "tied", "diag", "spherical"],
-        "random_state": [42],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "KDE": {
-        "kernel": ["gaussian", "tophat", "epanechnikov", "exponential"],
-        "bandwidth": [0.1, 0.5, 1, 2, 5],
-        "contamination": [0.05, 0.1, 0.2],
-    },
-    "LMDD": {
-        "random_state": [42],
-        "contamination": [0.05, 0.1, 0.2],
-        "sub_estimator": ["auto", 1, 2],
-    },
+    # "KNN": {
+    #     "n_neighbors": [3, 5, 11, 20, 35, 60],
+    #     "method": ["largest", "mean", "median"],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "LOF": {"n_neighbors": [3, 5, 11, 20, 35, 50], "contamination": [0.05, 0.1, 0.2]},
+    # "CBLOF": {
+    #     "check_estimator": [False],
+    #     "random_state": [42],
+    #     "alpha": [0.1, 0.5, 0.9],
+    #     "beta": [2, 4, 7, 10, 20],
+    #     "clustering_estimator": [KMeans(n_clusters=2), KMeans(n_clusters=5)],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "FeatureBagging": {
+    #     "base_estimator": [
+    #         LOF(n_neighbors=5),
+    #         LOF(n_neighbors=15),
+    #         LOF(n_neighbors=35),
+    #         LOF(n_neighbors=50),
+    #     ],
+    #     "random_state": [42],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "MCD": {"random_state": [42], "contamination": [0.05, 0.1, 0.2]},
+    # "OCSVM": {
+    #     "kernel": ["rbf", "linear", "sigmoid", "poly"],
+    #     "gamma": [0.001, 0.01, 0.1, 1, "auto"],
+    #     "nu": [0.05, 0.1, 0.2, 0.35],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "PCA": {
+    #     "n_components": [1, 5, 10, 20, 35],
+    #     "random_state": [42],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "LSCP": {
+    #     "detector_list": [
+    #         LOF(n_neighbors=5),
+    #         LOF(n_neighbors=10),
+    #         LOF(n_neighbors=15),
+    #         LOF(n_neighbors=20),
+    #         LOF(n_neighbors=25),
+    #         LOF(n_neighbors=30),
+    #         LOF(n_neighbors=35),
+    #         LOF(n_neighbors=40),
+    #         LOF(n_neighbors=45),
+    #         LOF(n_neighbors=50),
+    #     ],
+    #     "random_state": [42],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "INNE": {
+    #     "max_samples": [2, 10, 50],
+    #     "contamination": [0.05, 0.1, 0.2],
+    #     "random_state": [42],
+    # },
+    # "GMM": {
+    #     "n_components": [1, 2, 5, 10, 20],
+    #     "covariance_type": ["full", "tied", "diag", "spherical"],
+    #     "random_state": [42],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "KDE": {
+    #     "kernel": ["gaussian", "tophat", "epanechnikov", "exponential"],
+    #     "bandwidth": [0.1, 0.5, 1, 2, 5],
+    #     "contamination": [0.05, 0.1, 0.2],
+    # },
+    # "LMDD": {
+    #     "random_state": [42],
+    #     "contamination": [0.05, 0.1, 0.2],
+    #     "sub_estimator": ["auto", 1, 2],
+    # },
 }
 
 # ---------------------------
@@ -321,17 +321,18 @@ df_test = processor.test(df_test, output_dir="tmp", skip_preprocess=False)
 # --------------------------------------------
 # [Step 2] Build targets and split validation
 # --------------------------------------------
-y_test_bin = build_target(df_test[LABEL_COL] if LABEL_COL in df_test else None)
-X_train = df_train.drop(columns=[LABEL_COL], errors="ignore")
-X_test = df_test.drop(columns=[LABEL_COL], errors="ignore")
-logger.debug("Test set - (0 benign, 1 attack):", np.bincount(y_test_bin))
+X_tr = df_train.drop(columns=[LABEL_COL], errors="ignore")
+X_ts = df_test.drop(columns=[LABEL_COL], errors="ignore")
+
+y_ts_bin = build_target(df_test[LABEL_COL] if LABEL_COL in df_test else None)
+logger.debug("Test set - (0 benign, 1 attack):", np.bincount(y_ts_bin))
 
 # Split test into validation + final test
-X_val, X_final_test, y_val, y_final_test = train_test_split(
-    X_test, y_test_bin, test_size=1 - VAL_SIZE, stratify=y_test_bin, random_state=42
+X_val, X_ts, y_val, y_ts = train_test_split(
+    X_ts, y_ts_bin, test_size=1 - VAL_SIZE, stratify=y_ts_bin, random_state=42
 )
 logger.debug(
-    f"Validation set size: {len(X_val)} - Test size finale: {len(X_final_test)}"
+    f"Validation set size: {len(X_val)} - Test size finale: {len(X_ts)}"
 )
 
 # ---------------------------------------------
@@ -370,9 +371,11 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
             logger.debug(f"Best params loaded from cache: {best_params}")
         except Exception as e:
             raise ValueError(f"Model load failed for {model_name}: {e}")
-        # Always perform the test & save results
-        pred_test = base_detector.predict(X_test)
-        compute_and_save_metrics(y_test_bin, pred_test, test_result_file)
+
+        # Always perform the test & save results on the final test split
+        y_pred = base_detector.predict(X_ts)
+        compute_and_save_metrics(y_ts, y_pred, test_result_file)
+
     else:
         # Check best params cache, fast train
         if model_name in all_best_params:
@@ -383,10 +386,14 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
                     logger.debug(f"Best params loaded from cache: {best_params}")
             base_detector = Detector(detector_class=model_class, **best_params)
             logger.info(f"Training {model_name} with cached best params...")
-            base_detector.fit(X_train, output_dir="tmp", skip_preprocess=True)
-            pred_test = base_detector.predict(
-                X_test, output_dir="tmp", skip_preprocess=True
+            base_detector.fit(X_tr, output_dir="tmp", skip_preprocess=True)
+            y_pred = base_detector.predict(
+                X_ts, output_dir="tmp", skip_preprocess=True
             )
+            joblib.dump(base_detector, model_file)
+            logger.debug(f"Model saved to: {model_file}")
+            compute_and_save_metrics(y_ts, y_pred, test_result_file)
+
         else:
             base_detector = Detector(detector_class=model_class)
             grid = GridSearchCV(
@@ -395,30 +402,30 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
                 scoring=validation_scorer,
                 cv=3,
                 refit=True,
+                n_jobs=4
             )
+            logger.info(f"Performing Grid Search for {model_name}...")
+
             try:
-                logger.info(f"Performing Grid Search for {model_name}...")
-                grid.fit(X_train, output_dir="tmp", skip_preprocess=True)
-                best_params = grid.best_params_
-                logger.info(f"Best params computed: {best_params}")
-                all_best_params[model_name] = best_params
+                grid.fit(X_tr, output_dir="tmp", skip_preprocess=True)
+
+                logger.info(f"Best params computed: {grid.best_params_}")
+                all_best_params[model_name] = grid.best_params_
                 serializable_params = {
                     m: make_json_serializable(p) for m, p in all_best_params.items()
                 }
                 with open(BEST_PARAMS_PATH, "w") as f:
                     json.dump(serializable_params, f, indent=2)
-                best_detector = grid.best_estimator_
-                pred_test = best_detector.predict(
-                    X_test, output_dir="tmp", skip_preprocess=True
+
+                y_pred = grid.best_estimator_.predict(
+                    X_ts, output_dir="tmp", skip_preprocess=True
                 )
+
+                joblib.dump(grid.best_estimator_, model_file)
+                logger.debug(f"Model saved to: {model_file}")
+                compute_and_save_metrics(y_ts, y_pred, test_result_file)
             except Exception as e:
-                logger.debug(f"Grid Search failed for {model_name}: {e}")
+                logger.info(f"Grid Search failed for {model_name}: {e}")
                 continue
 
-        # Save trained model and test results
-        try:
-            joblib.dump(base_detector, model_file)
-            logger.debug(f"Model saved to: {model_file}")
-        except Exception as e:
-            logger.debug(f"Failed to save model {model_name}: {e}")
-        compute_and_save_metrics(y_test_bin, pred_test, test_result_file)
+
