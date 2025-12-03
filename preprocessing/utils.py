@@ -358,7 +358,7 @@ def impute_pfcp_fields(df, fit_mode=False, imputer_counters=None, imputer_flags=
 
 def preprocessing_pipeline_train(
     df_train: pd.DataFrame,
-    output_dir: str,
+    output_dir: str | None
 ) -> pd.DataFrame:
     """
     Preprocessing pipeline for training data.
@@ -367,7 +367,7 @@ def preprocessing_pipeline_train(
     ----------
     df_train: pd.DataFrame
         Training DataFrame.
-    output_dir: str
+    output_dir: str | None
         Directory to save processed data.
 
     Returns
@@ -376,7 +376,8 @@ def preprocessing_pipeline_train(
         Processed training DataFrame.
     """
     # Ensure output directory exists
-    Path(output_dir).mkdir(exist_ok=True)
+    if output_dir is not None:
+        Path(output_dir).mkdir(exist_ok=True)
     (Path(__file__).parent / "models_preprocessing").mkdir(exist_ok=True)
 
     df_train = df_train.copy()
@@ -416,31 +417,36 @@ def preprocessing_pipeline_train(
     # -----------------------------
     # [Step 3] Save processed data
     # -----------------------------
-    df_train_processed.to_csv(
-        Path(output_dir) / "train_dataset_processed.csv", sep=";", index=False
-    )
+    if output_dir is not None:
+        df_train_processed.to_csv(
+            Path(output_dir) / "train_dataset_processed.csv", sep=";", index=False
+        )
 
     return df_train_processed
 
 
 def preprocessing_pipeline_test(
     df_test: pd.DataFrame,
-    output_dir: str,
+    output_dir: str | None
 ) -> pd.DataFrame:
     """
     Preprocessing pipeline for training data.
 
     Parameters
     ----------
-    df_test (pd.DataFrame): Test DataFrame (also a single sample).
-    output_dir (str): Directory to save processed data.
+    df_test : pd.DataFrame
+        Test DataFrame (also a single sample).
+    output_dir : str
+        Directory to save processed data.
 
     Returns
     -------
-    pd.DataFrame: Processed training DataFrame/single sample.
+    pd.DataFrame
+        Processed training DataFrame/single sample.
     """
     # Ensure output directory exists
-    Path(output_dir).mkdir(exist_ok=True)
+    if output_dir is not None:
+        Path(output_dir).mkdir(exist_ok=True)
 
     df_test = df_test.copy()
 
@@ -510,8 +516,9 @@ def preprocessing_pipeline_test(
     # -----------------------------
     # [Step 3] Save processed data
     # -----------------------------
-    df_test_processed.to_csv(
-        Path(output_dir) / "test_dataset_processed.csv", sep=";", index=False
-    )
+    if output_dir is not None:
+        df_test_processed.to_csv(
+            Path(output_dir) / "test_dataset_processed.csv", sep=";", index=False
+        )
 
     return df_test_processed

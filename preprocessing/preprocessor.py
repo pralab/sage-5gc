@@ -14,7 +14,10 @@ class Preprocessor:
     """Wrapper class that exposes utility preprocessing functions as methods."""
 
     def train(
-        self, df_train: pd.DataFrame, output_dir: str, skip_preprocess: bool = False
+        self,
+        df_train: pd.DataFrame,
+        output_dir: str | None,
+        skip_preprocess: bool = False,
     ) -> pd.DataFrame:
         """
         Call the train preprocessing pipeline. Run only if not already fitted.
@@ -34,19 +37,25 @@ class Preprocessor:
         pd.DataFrame
             The preprocessed DataFrame.
         """
-        if skip_preprocess:
-            if not (Path(output_dir) / "train_dataset_processed.csv").exists:
+        if output_dir is None:
+            df = _train(df_train, output_dir)
+
+        elif skip_preprocess:
+            if not (Path(output_dir) / "train_dataset_processed.csv").exists():
                 raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
 
             with (Path(output_dir) / "train_dataset_processed.csv").open("r") as f:
                 df = pd.read_csv(f, low_memory=False, sep=";")
         else:
-            # Run the actual training pipeline
             df = _train(df_train, output_dir)
+
         return df
 
     def test(
-        self, df_test: pd.DataFrame, output_dir: str, skip_preprocess: bool = False
+        self,
+        df_test: pd.DataFrame,
+        output_dir: str | None,
+        skip_preprocess: bool = False,
     ) -> pd.DataFrame:
         """
         Call the test preprocessing pipeline.
@@ -63,8 +72,11 @@ class Preprocessor:
         pd.DataFrame
             The preprocessed DataFrame.
         """
-        if skip_preprocess:
-            if not (Path(output_dir) / "test_dataset_processed.csv").exists:
+        if output_dir is None:
+            df = _test(df_test, output_dir)
+
+        elif skip_preprocess:
+            if not (Path(output_dir) / "test_dataset_processed.csv").exists():
                 raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
 
             with (Path(output_dir) / "test_dataset_processed.csv").open("r") as f:

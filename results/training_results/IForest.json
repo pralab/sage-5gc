@@ -1,0 +1,15 @@
+{
+  "model": "IForest",
+  "best_params": {
+    "contamination": 0.05,
+    "max_features": 0.75,
+    "max_samples": 0.1,
+    "n_estimators": 200,
+    "random_state": 42
+  },
+  "accuracy": 0.7338943177705393,
+  "f1": 0.5796770044304702,
+  "roc_auc": 0.830075933060659,
+  "precision": 0.41094224924012157,
+  "recall": 0.9835111542192047
+}

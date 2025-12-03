@@ -14,7 +14,6 @@ class Detector(BaseEstimator, ClassifierMixin):
         **detector_params,
     ) -> None:
         self.detector_class = detector_class
-        # Salva i params come attributi per GridSearchCV!
         for k, v in detector_params.items():
             setattr(self, k, v)
         self.detector_params = detector_params
@@ -26,7 +25,7 @@ class Detector(BaseEstimator, ClassifierMixin):
     def fit(
         self,
         df_train: pd.DataFrame,
-        output_dir: str = "tmp",
+        output_dir: str | None,
         skip_preprocess: bool = False,
     ):
         df = self.preprocessor.train(df_train, output_dir, skip_preprocess)
@@ -35,7 +34,7 @@ class Detector(BaseEstimator, ClassifierMixin):
         X_ = X_[sorted(X_.columns)]
         self._feature_columns = X_.columns.tolist()
 
-        # Costruisco i kwargs leggendo tutti gli attributi corrispondenti alla detector_class
+        # Build detector with params set as attributes
         detector_kwargs = {}
         sig = inspect.signature(self.detector_class.__init__)
         for param in sig.parameters.values():
@@ -50,7 +49,7 @@ class Detector(BaseEstimator, ClassifierMixin):
     def predict(
         self,
         df_test: pd.DataFrame,
-        output_dir: str = "tmp",
+        output_dir: str | None,
         skip_preprocess: bool = False,
     ):
         if not self._trained:

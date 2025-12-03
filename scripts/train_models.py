@@ -82,7 +82,11 @@ def make_json_serializable(d: dict) -> dict:
 
 
 def compute_and_save_metrics(
-    y_true: np.ndarray, y_pred: np.ndarray, test_result_file: str
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    test_result_file: str,
+    best_params: dict,
+    model_name: str,
 ) -> None:
     """
     Compute and log metrics, save to results.
@@ -179,7 +183,7 @@ def restore_estimator(e: dict | list | str) -> object:
     return e
 
 
-def validation_scorer(estimator: object, X_unused: pd.DataFrame) -> float:
+def validation_scorer(estimator: Detector, X_unused: pd.DataFrame) -> float:
     """
     Score always on the fixed validation set.
 
@@ -195,17 +199,17 @@ def validation_scorer(estimator: object, X_unused: pd.DataFrame) -> float:
     float
         ROC AUC score on validation set.
     """
-    pred = estimator.predict(X_val)
+    pred = estimator.predict(X_val, None)
     return roc_auc_score(y_val, pred)
 
 
 # --- LIST OF CONFIGURATIONS ---
 PARAM_GRID_MODELS = {
-    # "ABOD": {
-    #     "n_neighbors": [1, 3, 5, 10, 20, 35, 50, 100],
-    #     "contamination": [0.05, 0.1, 0.2],
-    # },
-    # "HBOS": {"n_bins": [5, 10, 25, 50, 100], "contamination": [0.05, 0.1, 0.2]},
+    "ABOD": {
+        "n_neighbors": [1, 3, 5, 10, 20, 35, 50, 100],
+        "contamination": [0.05, 0.1, 0.2],
+    },
+    "HBOS": {"n_bins": [5, 10, 25, 50, 100], "contamination": [0.05, 0.1, 0.2]},
     "IForest": {
         "n_estimators": [25, 50, 100, 200],
         "max_samples": [0.1, 0.5, 0.7, 1.0],
@@ -303,7 +307,7 @@ BEST_PARAMS_PATH = (
 # Directory to save trained model and results
 MODEL_DIR = Path(__file__).parent.parent / "data/trained_models"
 RESULTS_DIR = Path(__file__).parent.parent / "results/training_results"
-
+PREPROCESS_DIR = Path(__file__).parent.parent / "tmp"
 
 # --------------------------------------
 # [Step 1] Load data and preprocess
@@ -313,10 +317,6 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 
 df_train = pd.read_csv(TRAIN_PATH, sep=";", low_memory=False)
 df_test = pd.read_csv(TEST_PATH, sep=";", low_memory=False)
-
-processor = Preprocessor()
-df_train = processor.train(df_train, output_dir="tmp", skip_preprocess=False)
-df_test = processor.test(df_test, output_dir="tmp", skip_preprocess=False)
 
 # --------------------------------------------
 # [Step 2] Build targets and split validation
@@ -331,12 +331,17 @@ logger.debug("Test set - (0 benign, 1 attack):", np.bincount(y_ts_bin))
 X_val, X_ts, y_val, y_ts = train_test_split(
     X_ts, y_ts_bin, test_size=1 - VAL_SIZE, stratify=y_ts_bin, random_state=42
 )
-logger.debug(
-    f"Validation set size: {len(X_val)} - Test size finale: {len(X_ts)}"
-)
+logger.debug(f"Validation set size: {len(X_val)} - Test size finale: {len(X_ts)}")
 
 # ---------------------------------------------
-# [Step 2.1] Load best params cache if present
+# [Step 2.1] Preprocess train and test datasets
+# ---------------------------------------------
+processor = Preprocessor()
+df_train = processor.train(df_train, output_dir=PREPROCESS_DIR)
+df_test = processor.test(X_ts, output_dir=PREPROCESS_DIR)
+
+# ---------------------------------------------
+# [Step 2.2] Load best params cache if present
 # ---------------------------------------------
 if os.path.exists(BEST_PARAMS_PATH):
     with open(BEST_PARAMS_PATH, "r") as f:
@@ -365,7 +370,7 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
     if os.path.exists(model_file):
         logger.info(f"Model for {model_name} already trained and saved. Loading...")
         try:
-            base_detector = joblib.load(model_file)
+            base_detector: Detector = joblib.load(model_file)
             logger.debug(f"Loaded {model_name} from {model_file}")
             best_params = all_best_params[model_name]
             logger.debug(f"Best params loaded from cache: {best_params}")
@@ -373,8 +378,12 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
             raise ValueError(f"Model load failed for {model_name}: {e}")
 
         # Always perform the test & save results on the final test split
-        y_pred = base_detector.predict(X_ts)
-        compute_and_save_metrics(y_ts, y_pred, test_result_file)
+        y_pred = base_detector.predict(
+            X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
+        )
+        compute_and_save_metrics(
+            y_ts, y_pred, test_result_file, best_params, model_name
+        )
 
     else:
         # Check best params cache, fast train
@@ -384,15 +393,21 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
                 if k in ["clustering_estimator", "base_estimator", "detector_list"]:
                     best_params[k] = restore_estimator(v)
                     logger.debug(f"Best params loaded from cache: {best_params}")
+
             base_detector = Detector(detector_class=model_class, **best_params)
+
             logger.info(f"Training {model_name} with cached best params...")
-            base_detector.fit(X_tr, output_dir="tmp", skip_preprocess=True)
+            base_detector.fit(X_tr, output_dir=PREPROCESS_DIR, skip_preprocess=True)
+
             y_pred = base_detector.predict(
-                X_ts, output_dir="tmp", skip_preprocess=True
+                X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
             )
+
             joblib.dump(base_detector, model_file)
             logger.debug(f"Model saved to: {model_file}")
-            compute_and_save_metrics(y_ts, y_pred, test_result_file)
+            compute_and_save_metrics(
+                y_ts, y_pred, test_result_file, best_params, model_name
+            )
 
         else:
             base_detector = Detector(detector_class=model_class)
@@ -402,12 +417,16 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
                 scoring=validation_scorer,
                 cv=3,
                 refit=True,
-                n_jobs=4
+                n_jobs=8,
             )
             logger.info(f"Performing Grid Search for {model_name}...")
 
             try:
-                grid.fit(X_tr, output_dir="tmp", skip_preprocess=True)
+                grid.fit(
+                    X_tr,
+                    output_dir=PREPROCESS_DIR,
+                    skip_preprocess=True,
+                )
 
                 logger.info(f"Best params computed: {grid.best_params_}")
                 all_best_params[model_name] = grid.best_params_
@@ -418,14 +437,14 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
                     json.dump(serializable_params, f, indent=2)
 
                 y_pred = grid.best_estimator_.predict(
-                    X_ts, output_dir="tmp", skip_preprocess=True
+                    X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
                 )
 
                 joblib.dump(grid.best_estimator_, model_file)
                 logger.debug(f"Model saved to: {model_file}")
-                compute_and_save_metrics(y_ts, y_pred, test_result_file)
+                compute_and_save_metrics(
+                    y_ts, y_pred, test_result_file, grid.best_params_, model_name
+                )
             except Exception as e:
                 logger.info(f"Grid Search failed for {model_name}: {e}")
                 continue
-
-
