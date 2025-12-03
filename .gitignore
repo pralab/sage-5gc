@@ -4,3 +4,4 @@ __pycache__
 test.csv
 data/tmp
 tmp
+FeatureBagging.pkl
