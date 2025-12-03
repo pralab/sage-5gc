@@ -54,7 +54,7 @@ def drop_columns(df):
     return df_dropped
 
 
-def drop_constant_ip_columns(df):
+def drop_constant_columns(df):
     """
     Drops constant IP-related columns from the given DataFrame.
 
@@ -69,50 +69,45 @@ def drop_constant_ip_columns(df):
         DataFrame with constant IP-related columns removed.
     """
     # Check for constant IP-related columns not useful for intrusion detection
-    constant_ip_col_to_drop = []
+    constant_col_to_drop = []
 
     # IP-related columns starting with 'ip.'
     ip_columns = [col for col in df.columns if col.startswith("ip.")]
     for col in ip_columns:
         if df[col].nunique() == 1:
-            constant_ip_col_to_drop.append(col)
+            constant_col_to_drop.append(col)
 
-    if constant_ip_col_to_drop:
-        logger.debug(f"Dropping constant IP-related columns: {constant_ip_col_to_drop}")
-        # Save the dropped columns names to a file json
+    # PFCP-related columns starting with 'pfcp.'
+    pfcp_columns = [col for col in df.columns if col.startswith("pfcp.")]
+    for col in pfcp_columns:
+        if df[col].nunique() == 1:
+            constant_col_to_drop.append(col)
+
+    if constant_col_to_drop:
+        logger.debug(f"Dropping constant columns: {constant_col_to_drop}")
+
         with (
             Path(__file__).parent
-            / "models_preprocessing/constant_ip_columns_dropped.json"
+            / "models_preprocessing/constant_columns_dropped.json"
         ).open("w") as f:
-            json.dump(constant_ip_col_to_drop, f, indent=2)
+            json.dump(constant_col_to_drop, f, indent=4)
 
-    df_dropped = df.drop(columns=constant_ip_col_to_drop, errors="ignore")
-    logger.debug(f"Remaining DataFrame shape: {df_dropped.shape}")
-
-    return df_dropped
+    return df.drop(columns=constant_col_to_drop, errors="ignore")
 
 
-def boolean_to_numeric(df, imputer=None, fit_mode=False):
+def boolean_to_numeric(df: pd.DataFrame):
     """
-    Convert boolean columns to integer with imputer for NaN handling.
-
-    Strategy: Use SimpleImputer with 'most_frequent' strategy.
+    Convert boolean columns to integer.
 
     Parameters
     ----------
     df : pd.DataFrame
         Input dataframe.
-    imputer : SimpleImputer or None
-        Pre-fitted imputer (for test mode).
-    fit_mode : bool
-        If True, fit the imputer (training mode).
 
     Returns
     -------
     df : pd.DataFrame
         Transformed dataframe.
-    imputer : SimpleImputer (only if fit_mode=True)
-        Fitted imputer.
     """
     df = df.copy()
 
@@ -129,29 +124,12 @@ def boolean_to_numeric(df, imputer=None, fit_mode=False):
         "pfcp.s",
     ]
     existing_bool_cols = [col for col in bool_cols if col in df.columns]
-    if not existing_bool_cols:
-        return (df, imputer) if fit_mode else df
 
-    # Convert True/False to 1/0 (NaN stays NaN)
     for col in existing_bool_cols:
         df[col] = df[col].map({True: 1, False: 0})
+        df[col] = df[col].fillna(-1).astype(int)
 
-    if fit_mode:
-        # TRAINING: Fit imputer
-        imputer = SimpleImputer(strategy="most_frequent")
-        df[existing_bool_cols] = imputer.fit_transform(df[existing_bool_cols])
-        logger.debug(f"Fitted boolean imputer on {len(existing_bool_cols)} columns")
-        logger.debug(
-            f"Learned values: {dict(zip(existing_bool_cols, imputer.statistics_))}"
-        )
-        return df, imputer
-    else:
-        # TEST: Apply pre-fitted imputer
-        if imputer is None:
-            raise ValueError("Imputer must be provided in test mode (fit_mode=False)")
-        df[existing_bool_cols] = imputer.transform(df[existing_bool_cols])
-        logger.debug(f"Applied boolean imputer to {len(existing_bool_cols)} columns")
-        return df
+    return df
 
 
 def timestamp_to_numeric(df):
@@ -185,7 +163,6 @@ def timestamp_to_numeric(df):
     return df
 
 
-# Function to convert hex values to integer
 def hex_to_integer(df):
     """
     Converts hexadecimal columns in the DataFrame to integer.
@@ -357,8 +334,7 @@ def impute_pfcp_fields(df, fit_mode=False, imputer_counters=None, imputer_flags=
 
 
 def preprocessing_pipeline_train(
-    df_train: pd.DataFrame,
-    output_dir: str | None
+    df_train: pd.DataFrame, output_dir: str | None
 ) -> pd.DataFrame:
     """
     Preprocessing pipeline for training data.
@@ -386,19 +362,12 @@ def preprocessing_pipeline_train(
     # [Step 1] Drop useless columns
     # ------------------------------
     df_train_processed = drop_columns(df_train)
-    df_train_processed = drop_constant_ip_columns(df_train_processed)
+    df_train_processed = drop_constant_columns(df_train_processed)
 
     # ----------------------------------------
     # [Step 2] Convert non-numeric to numeric
     # ----------------------------------------
-    df_train_processed, boolean_imputer = boolean_to_numeric(
-        df_train_processed, fit_mode=True
-    )
-    dump(
-        boolean_imputer,
-        Path(__file__).parent / "models_preprocessing/boolean_imputer.pkl",
-    )
-
+    df_train_processed = boolean_to_numeric(df_train_processed)
     df_train_processed = timestamp_to_numeric(df_train_processed)
     df_train_processed = hex_to_integer(df_train_processed)
     df_train_processed = ip_to_numeric(df_train_processed)
@@ -426,8 +395,7 @@ def preprocessing_pipeline_train(
 
 
 def preprocessing_pipeline_test(
-    df_test: pd.DataFrame,
-    output_dir: str | None
+    df_test: pd.DataFrame, output_dir: str | None
 ) -> pd.DataFrame:
     """
     Preprocessing pipeline for training data.
@@ -455,36 +423,21 @@ def preprocessing_pipeline_test(
     # ------------------------------
     df_test_processed = drop_columns(df_test)
 
-    # Drop constant IP columns -> No sense if we have a single sample
-    # df_test_processed = drop_constant_ip_columns(df_test_processed)
-    path_constant_ip = (
-        Path(__file__).parent / "models_preprocessing/constant_ip_columns_dropped.json"
+    path_constant_cols = (
+        Path(__file__).parent / "models_preprocessing/constant_columns_dropped.json"
     )
-    if path_constant_ip.exists():
-        with path_constant_ip.open("r") as f:
+    if path_constant_cols.exists():
+        with path_constant_cols.open("r") as f:
             constant_ip_col_to_drop = json.load(f)
 
         df_test_processed = df_test_processed.drop(
             columns=constant_ip_col_to_drop, errors="ignore"
         )
-        logger.debug(
-            f"Dropped constant IP-related columns from test data: {constant_ip_col_to_drop}"
-        )
 
     # ----------------------------------------
     # [Step 2] Convert non-numeric to numeric
     # ----------------------------------------
-    path_boolean_imputer = (
-        Path(__file__).parent / "models_preprocessing/boolean_imputer.pkl"
-    )
-    if not path_boolean_imputer.exists():
-        raise FileNotFoundError("boolean_imputer.pkl not found!  Run training first.")
-
-    boolean_imputer = load(path_boolean_imputer)
-    df_test_processed = boolean_to_numeric(
-        df_test_processed, imputer=boolean_imputer, fit_mode=False
-    )
-
+    df_test_processed = boolean_to_numeric(df_test_processed)
     df_test_processed = timestamp_to_numeric(df_test_processed)
     df_test_processed = hex_to_integer(df_test_processed)
     df_test_processed = ip_to_numeric(df_test_processed)

@@ -1,9 +1,0 @@
-{
-  "IForest": {
-    "contamination": 0.05,
-    "max_features": 0.75,
-    "max_samples": 0.1,
-    "n_estimators": 200,
-    "random_state": 42
-  }
-}

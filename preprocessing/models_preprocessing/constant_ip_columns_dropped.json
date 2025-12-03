@@ -1,8 +1,0 @@
-[
-  "ip.dsfield",
-  "ip.dsfield.dscp",
-  "ip.flags",
-  "ip.flags.df",
-  "ip.hdr_len",
-  "ip.proto"
-]

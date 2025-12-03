@@ -1,0 +1,17 @@
+[
+    "ip.dsfield",
+    "ip.dsfield.dscp",
+    "ip.flags",
+    "ip.flags.df",
+    "ip.hdr_len",
+    "ip.proto",
+    "pfcp.apply_action.drop",
+    "pfcp.cause",
+    "pfcp.flow_desc_len",
+    "pfcp.node_id_type",
+    "pfcp.pdn_type",
+    "pfcp.precedence",
+    "pfcp.source_interface",
+    "pfcp.ue_ip_address_flag.sd",
+    "pfcp.user_id.imei"
+]
