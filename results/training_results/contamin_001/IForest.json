@@ -1,0 +1,12 @@
+{
+  "model": "IForest",
+  "best_params": {
+    "contamination": 0.001,
+    "n_neighbors": 100
+  },
+  "accuracy": 0.9005609844372059,
+  "f1": 0.6381297332894303,
+  "roc_auc": 0.7346323482606496,
+  "precision": 0.9938461538461538,
+  "recall": 0.46993210475266733
+}

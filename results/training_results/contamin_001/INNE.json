@@ -1,0 +1,13 @@
+{
+  "model": "INNE",
+  "best_params": {
+    "contamination": 0.001,
+    "max_samples": 10,
+    "random_state": 42
+  },
+  "accuracy": 0.752985884907709,
+  "f1": 0.43641618497109824,
+  "roc_auc": 0.6603646254217155,
+  "precision": 0.37994248741912295,
+  "recall": 0.5126091173617847
+}

@@ -1,0 +1,13 @@
+{
+  "model": "GMM",
+  "best_params": {
+    "contamination": 0.001,
+    "max_samples": 10,
+    "random_state": 42
+  },
+  "accuracy": 0.8716974303293522,
+  "f1": 0.7441356910862504,
+  "roc_auc": 0.921134593993326,
+  "precision": 0.5925287356321839,
+  "recall": 1.0
+}

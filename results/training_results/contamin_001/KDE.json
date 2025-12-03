@@ -1,0 +1,12 @@
+{
+  "model": "KDE",
+  "best_params": {
+    "bandwidth": 0.1,
+    "contamination": 0.001
+  },
+  "accuracy": 0.1865725660513934,
+  "f1": 0.31447308220222664,
+  "roc_auc": 0.5,
+  "precision": 0.1865725660513934,
+  "recall": 1.0
+}

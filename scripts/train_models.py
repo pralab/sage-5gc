@@ -207,29 +207,35 @@ def validation_scorer(estimator: Detector, X_unused: pd.DataFrame) -> float:
 PARAM_GRID_MODELS = {
     "ABOD": {
         "n_neighbors": [1, 3, 5, 10, 20, 35, 50, 100],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
-    "HBOS": {"n_bins": [5, 10, 25, 50, 100], "contamination": [0.05, 0.1, 0.2]},
+    "HBOS": {
+        "n_bins": [5, 10, 25, 50, 100],
+        "contamination": [0.01]
+    },
     "IForest": {
         "n_estimators": [25, 50, 100, 200],
         "max_samples": [0.1, 0.5, 0.7, 1.0],
         "max_features": [0.5, 0.75, 1.0],
         "random_state": [42],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
     "KNN": {
         "n_neighbors": [3, 5, 11, 20, 35, 60],
         "method": ["largest", "mean", "median"],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
-    "LOF": {"n_neighbors": [3, 5, 11, 20, 35, 50], "contamination": [0.05, 0.1, 0.2]},
+    "LOF": {
+        "n_neighbors": [3, 5, 11, 20, 35, 50],
+        "contamination": [0.01]
+    },
     "CBLOF": {
         "check_estimator": [False],
         "random_state": [42],
         "alpha": [0.1, 0.5, 0.9],
         "beta": [2, 4, 7, 10, 20],
         "clustering_estimator": [KMeans(n_clusters=2), KMeans(n_clusters=5)],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
     "FeatureBagging": {
         "base_estimator": [
@@ -239,51 +245,51 @@ PARAM_GRID_MODELS = {
             LOF(n_neighbors=50),
         ],
         "random_state": [42],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
     "MCD": {"random_state": [42], "contamination": [0.001],},
     "OCSVM": {
         "kernel": ["rbf", "linear", "sigmoid", "poly"],
         "gamma": [0.001, 0.01, 0.1, 1, "auto"],
         "nu": [0.05, 0.1, 0.2, 0.35],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
     "PCA": {
         "n_components": [1, 5, 10, 20, 35],
         "random_state": [42],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
-    "LSCP": {
-        "detector_list": [
-            LOF(n_neighbors=5),
-            LOF(n_neighbors=10),
-            LOF(n_neighbors=15),
-            LOF(n_neighbors=20),
-            LOF(n_neighbors=25),
-            LOF(n_neighbors=30),
-            LOF(n_neighbors=35),
-            LOF(n_neighbors=40),
-            LOF(n_neighbors=45),
-            LOF(n_neighbors=50),
-        ],
-        "random_state": [42],
-        "contamination": [0.001],
-    },
+    # "LSCP": {
+    #     "detector_list": [
+    #         LOF(n_neighbors=5),
+    #         LOF(n_neighbors=10),
+    #         LOF(n_neighbors=15),
+    #         LOF(n_neighbors=20),
+    #         LOF(n_neighbors=25),
+    #         LOF(n_neighbors=30),
+    #         LOF(n_neighbors=35),
+    #         LOF(n_neighbors=40),
+    #         LOF(n_neighbors=45),
+    #         LOF(n_neighbors=50),
+    #     ],
+    #     "random_state": [42],
+    #     "contamination": [0.001],
+    # },
     "INNE": {
         "max_samples": [2, 10, 50],
         "random_state": [42],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
     "GMM": {
         "n_components": [1, 2, 5, 10, 20],
         "covariance_type": ["full", "tied", "diag", "spherical"],
         "random_state": [42],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
     "KDE": {
-        "kernel": ["gaussian", "tophat", "epanechnikov", "exponential"],
+        #"kernel": ["gaussian", "tophat", "epanechnikov", "exponential"],
         "bandwidth": [0.1, 0.5, 1, 2, 5],
-        "contamination": [0.001],
+        "contamination": [0.01],
     },
     # "LMDD": {
     #     "random_state": [42],
@@ -371,12 +377,12 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
                 best_params[k] = restore_estimator(v)
                 logger.debug(f"Best params loaded from cache: {best_params}")
 
-        base_detector = Detector(detector_class=eval(model_name), **best_params)
+        detector = Detector(detector_class=eval(model_name), **best_params)
 
         logger.info(f"Training {model_name} with cached best params...")
-        base_detector.fit(X_tr, output_dir=PREPROCESS_DIR, skip_preprocess=True)
+        detector.fit(X_tr, output_dir=PREPROCESS_DIR, skip_preprocess=True)
 
-        y_pred = base_detector.predict(
+        y_pred = detector.predict(
             X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
         )
     else:
@@ -390,29 +396,31 @@ for model_name, param_grid in PARAM_GRID_MODELS.items():
         )
         logger.info(f"Performing Grid Search for {model_name}...")
 
-        try:
-            grid.fit(
-                X_tr,
-                output_dir=PREPROCESS_DIR,
-                skip_preprocess=True,
-            )
+        # try:
+        grid.fit(
+            X_tr,
+            output_dir=PREPROCESS_DIR,
+            skip_preprocess=True,
+        )
+        logger.info(f"Best params computed: {grid.best_params_}")
 
-            logger.info(f"Best params computed: {grid.best_params_}")
-            all_best_params[model_name] = grid.best_params_
-            serializable_params = {
-                m: make_json_serializable(p) for m, p in all_best_params.items()
-            }
-            with open(BEST_PARAMS_PATH, "w") as f:
-                json.dump(serializable_params, f, indent=2)
+        best_params = grid.best_params_
+        all_best_params[model_name] = best_params
+        serializable_params = {
+            m: make_json_serializable(p) for m, p in all_best_params.items()
+        }
+        with open(BEST_PARAMS_PATH, "w") as f:
+            json.dump(serializable_params, f, indent=2)
 
-            y_pred = grid.best_estimator_.predict(
-                X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
-            )
-        except Exception as e:
-            logger.info(f"Grid Search failed for {model_name}: {e}")
-            continue
+        detector = grid.best_estimator_
+        y_pred = detector.predict(
+            X_ts, output_dir=PREPROCESS_DIR, skip_preprocess=True
+        )
+        # except Exception as e:
+        #     logger.info(f"Grid Search failed for {model_name}: {e}")
+        #     continue
 
-    joblib.dump(base_detector, model_file)
+    joblib.dump(detector, model_file)
     logger.debug(f"Model saved to: {model_file}")
     compute_and_save_metrics(
         y_ts, y_pred, test_result_file, best_params, model_name
