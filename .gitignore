@@ -1,7 +1,5 @@
 __pycache__
 .DS_Store
 *.txt
-test.csv
-data/tmp
-tmp
+tmp/
 FeatureBagging.pkl
