@@ -41,6 +41,7 @@ class BlackBoxAttack:
         self,
         sample_idx: int,
         sample: pd.Series,
+        detector_name: str,
         detector: Detector,
         query_budget: int = 100,
     ) -> None:
@@ -49,8 +50,12 @@ class BlackBoxAttack:
 
         Parameters
         ----------
+        sample_idx : int
+            The index of the sample in the dataset.
         sample: pd.Series
             The sample to attack.
+        detector_name : str
+            The name of the detector being attacked.
         detector : Detector
             The detector object with a get_score method.
         query_budget : int
@@ -97,7 +102,13 @@ class BlackBoxAttack:
         recommendation = self._optimizer.provide_recommendation()
         best_params = recommendation.value
         best_loss = recommendation.loss
-        # self._save_results(sample_idx, pd.Series(best_params), best_loss, detector)
+        self._save_results(
+            sample_idx,
+            best_params,
+            best_loss,
+            detector_name,
+            loss < detector._detector.threshold_,
+        )
 
     def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
         param = ng.p.Dict(
@@ -157,11 +168,15 @@ class BlackBoxAttack:
     def _save_results(
         self,
         sample_idx: int,
-        best_params: pd.Series,
+        best_params: dict,
         best_loss: float,
-        detector: object,
+        detector_name: str,
+        evaded: bool,
     ) -> None:
-        results_path = Path(__file__).parent / "results/isolation.json"
+        results_path = (
+            Path(__file__).parent.parent
+            / f"results/blackbox_attack/{detector_name}.json"
+        )
         if results_path.exists():
             with results_path.open("r") as f:
                 results = json.load(f)
@@ -169,9 +184,9 @@ class BlackBoxAttack:
             results = {}
 
         results[str(sample_idx)] = {
-            "best_params": best_params.to_dict(),
+            "best_params": best_params,
             "best_loss": best_loss,
-            "evaded": best_loss < detector.best_threshold,
+            "evaded": bool(evaded),
         }
 
         with results_path.open("w", encoding="utf-8") as f:
@@ -270,11 +285,14 @@ if __name__ == "__main__":
 
     bb = BlackBoxAttack(optimizer_cls)
 
+    detector_name = "IForest"
     detector: Detector = joblib.load(
-        Path(__file__).parent.parent / "data/trained_models/IForest.pkl"
+        Path(__file__).parent.parent / f"data/trained_models/{detector_name}.pkl"
     )
 
-    results_path = Path(__file__).parent.parent / "results/blackbox_attack/iforest.json"
+    results_path = (
+        Path(__file__).parent.parent / f"results/blackbox_attack/{detector_name}.json"
+    )
     if results_path.exists():
         with results_path.open("r") as f:
             results = json.load(f)
@@ -286,4 +304,4 @@ if __name__ == "__main__":
             logger.info(f"Sample {idx} already attacked. Skipping.")
             continue
 
-        bb.run(idx, row, detector, query_budget=60)
+        bb.run(idx, row, detector_name, detector, query_budget=100)
