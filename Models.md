@@ -1,6 +1,15 @@
 
 # Model - Contamination=0.001
 
+- GMM (P 66 - R 100)
+- HBOS (P 69 - R 99)
+- IFOREST (P 67 - R 75)
+
+
+
+
+
+
 Precision:
 
 - KNN (51% Recall)
@@ -14,7 +23,9 @@ Recall:
 - GMM (59% Precision)
 - HBOS (51% Precision)
 
-# Model - Contamination=0.01
+
+
+
 
 Precision:
 

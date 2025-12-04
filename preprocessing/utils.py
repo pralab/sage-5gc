@@ -46,6 +46,10 @@ def drop_columns(df):
         # PFCP-related columns
         "pfcp.flow_desc",
         "pfcp.network_instance",
+        "pfcp.time_of_first_packet",
+        "pfcp.time_of_last_packet",
+        "pfcp.end_time",
+        "pfcp.recovery_time_stamp",
     ]
 
     df_dropped = df.drop(columns=col_to_drop, errors="ignore")
@@ -147,8 +151,6 @@ def timestamp_to_numeric(df):
     """
     df = df.copy()
     timestamp_cols = [
-        "pfcp.time_of_first_packet",
-        "pfcp.time_of_last_packet",
         "pfcp.end_time",
         "pfcp.recovery_time_stamp",
     ]
@@ -159,7 +161,7 @@ def timestamp_to_numeric(df):
             )
             logger.debug(f"Converted timestamp column to integer: {col}")
         except Exception as e:
-            logger.warning(f"Could not convert column {col} to integer timestamp: {e}")
+            logger.debug(f"Could not convert column {col} to integer timestamp: {e}")
 
     return df
 
@@ -195,7 +197,7 @@ def hex_to_integer(df):
             )
             logger.debug(f"Converted hexadecimal column to integer: {col}")
         except Exception as e:
-            logger.warning(f"Could not convert column {col} from hex to integer: {e}")
+            logger.debug(f"Could not convert column {col} from hex to integer: {e}")
 
     return df
 
@@ -231,7 +233,7 @@ def ip_to_numeric(df):
             )
             logger.debug(f"Converted IP address column to integer: {col}")
         except Exception as e:
-            logger.warning(f"Could not convert column {col} from IP to integer: {e}")
+            logger.debug(f"Could not convert column {col} from IP to integer: {e}")
 
     return df
 

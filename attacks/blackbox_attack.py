@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 import json
 import logging
 from pathlib import Path
@@ -35,16 +35,12 @@ class BlackBoxAttack:
         self._optimizer = None
         self._query_budget = None
 
-        # Create a temporary directory for intermediate preprocessing files
-        self._tmp_dir = Path(__file__).parent.parent / "tmp/"
-        self._tmp_dir.mkdir(parents=True, exist_ok=True)
-
         random.seed(42)
 
     def run(
         self,
         sample_idx: int,
-        df: pd.DataFrame,
+        sample: pd.Series,
         detector: Detector,
         query_budget: int = 100,
     ) -> None:
@@ -53,34 +49,26 @@ class BlackBoxAttack:
 
         Parameters
         ----------
-        sample_idx : int
-            The index of the sample to attack in the DataFrame.
-        df : pd.DataFrame
-            The DataFrame containing the dataset.
+        sample: pd.Series
+            The sample to attack.
         detector : Detector
             The detector object with a get_score method.
         query_budget : int
             The maximum number of queries allowed for the attack.
         """
         self._query_budget = query_budget
-        sample = df.iloc[sample_idx]
 
-        if sample["ip.proto"] == 1:  # ICMP
-            return
-
-        logger.info(f"Starting attack on sample {sample_idx}...")
+        logger.info("Starting attack on sample...")
 
         # --------------------------------------
         # [Step 1] Compute baseline predictions
         # --------------------------------------
-        orig_score = detector.decision_function(df, sample_idx)
-        logger.info(f"Original score for sample {sample_idx}: {orig_score}")
-        logger.info(f"Detector threshold: {detector.detector.threshold_}")
+        orig_score = detector.decision_function(pd.DataFrame([sample]))[0]
+        logger.info(f"Original score: {orig_score}")
+        logger.info(f"Detector threshold: {detector._detector.threshold_}")
 
-        if orig_score < detector.detector.threshold_:
-            logger.info(
-                f"Sample {sample_idx} is already classified as benign. Skipping attack."
-            )
+        if orig_score < detector._detector.threshold_:
+            logger.info("Sample is already classified as benign. Skipping attack.")
             return
 
         # --------------------------
@@ -94,13 +82,11 @@ class BlackBoxAttack:
         for idx in range(self._optimizer.budget):
             x = self._optimizer.ask()
             x_adv = self._apply_modifications(sample, x.value)
-            loss = self._compute_loss(sample_idx, x_adv, df, detector)
+            loss = self._compute_loss(x_adv, detector)
             logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
 
-            if loss < detector.detector.threshold_:
-                logger.info(
-                    f"Sample {sample_idx} evaded the detector after {idx + 1} queries."
-                )
+            if loss < detector._detector.threshold_:
+                logger.info(f"Sample evaded the detector after {idx + 1} queries.")
                 break
 
             self._optimizer.tell(x, loss)
@@ -111,7 +97,62 @@ class BlackBoxAttack:
         recommendation = self._optimizer.provide_recommendation()
         best_params = recommendation.value
         best_loss = recommendation.loss
-        self._save_results(sample_idx, pd.Series(best_params), best_loss, detector)
+        # self._save_results(sample_idx, pd.Series(best_params), best_loss, detector)
+
+    def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
+        param = ng.p.Dict(
+            # IP layer
+            ip_ttl=ng.p.Scalar(lower=2, upper=200).set_integer_casting(),
+            ip_id=ng.p.Scalar(lower=0, upper=65534).set_integer_casting(),
+            ip_len=ng.p.Scalar(lower=44, upper=653).set_integer_casting(),
+            ip_checksum=ng.p.Scalar(lower=54, upper=65525).set_integer_casting(),
+            # UDP layer
+            udp_length=ng.p.Scalar(lower=24, upper=633).set_integer_casting(),
+            udp_checksum=ng.p.Scalar(lower=2389, upper=41240).set_integer_casting(),
+            # PFCP layer
+            pfcp_apply_action_buff=ng.p.Choice([True, False]),
+            pfcp_apply_action_forw=ng.p.Choice([True, False]),
+            pfcp_apply_action_nocp=ng.p.Choice([True, False]),
+            pfcp_f_teid_flags_ch=ng.p.Choice([True, False]),
+            pfcp_f_teid_flags_ch_id=ng.p.Choice([True, False]),
+            pfcp_f_teid_flags_v6=ng.p.Choice([True, False]),
+            pfcp_s=ng.p.Choice([True, False]),
+            pfcp_dst_interface=ng.p.Scalar(lower=0, upper=1).set_integer_casting(),
+            pfcp_duration_measurement=ng.p.Scalar(
+                lower=1747212643, upper=1753894838
+            ).set_integer_casting(),
+            pfcp_ie_len=ng.p.Scalar(lower=1, upper=50).set_integer_casting(),
+            pfcp_ie_type=ng.p.Scalar(lower=10, upper=96).set_integer_casting(),
+            pfcp_length=ng.p.Scalar(lower=12, upper=621).set_integer_casting(),
+            pfcp_msg_type=ng.p.Scalar(lower=1, upper=57).set_integer_casting(),
+            pfcp_pdr_id=ng.p.Scalar(lower=1, upper=2).set_integer_casting(),
+            pfcp_recovery_time_stamp=ng.p.Scalar(
+                lower=1747207882, upper=1753892199
+            ).set_integer_casting(),
+            pfcp_response_time=ng.p.Scalar(lower=2.0095e-05, upper=0.041239073),
+            pfcp_response_to=ng.p.Scalar(lower=1, upper=2565).set_integer_casting(),
+            pfcp_seid=ng.p.Scalar(lower=0, upper=4095).set_integer_casting(),
+            pfcp_seqno=ng.p.Scalar(lower=0, upper=202364).set_integer_casting(),
+            pfcp_f_teid_teid=ng.p.Scalar(lower=29, upper=65507).set_integer_casting(),
+            pfcp_outer_hdr_creation_teid=ng.p.Scalar(
+                lower=1, upper=6326
+            ).set_integer_casting(),
+            pfcp_flags=ng.p.Scalar(lower=32, upper=33).set_integer_casting(),
+            pfcp_volume_measurement_dlnop=ng.p.Scalar(
+                lower=0, upper=13195
+            ).set_integer_casting(),
+            pfcp_volume_measurement_dlvol=ng.p.Scalar(
+                lower=0, upper=17834134
+            ).set_integer_casting(),
+            pfcp_volume_measurement_tonop=ng.p.Scalar(
+                lower=0, upper=13195
+            ).set_integer_casting(),
+            pfcp_volume_measurement_tovol=ng.p.Scalar(
+                lower=0, upper=17834134
+            ).set_integer_casting(),
+        )
+        param.random_state = np.random.RandomState(42)
+        return self._optimizer_cls(parametrization=param, budget=self._query_budget)
 
     def _save_results(
         self,
@@ -136,177 +177,83 @@ class BlackBoxAttack:
         with results_path.open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=4)
 
-    def _compute_loss(
-        self, sample_idx: int, x_adv: pd.Series, df: pd.DataFrame, detector: Detector
-    ) -> float:
-        adv_df = df.copy()
-        adv_df.loc[sample_idx] = x_adv
-        return detector.decision_function(adv_df, sample_idx)
+    def _compute_loss(self, x_adv: pd.Series, detector: Detector) -> float:
+        return detector.decision_function(pd.DataFrame([x_adv]))[0]
 
     def _apply_modifications(
         self, sample: pd.Series, params: Dict[str, int]
     ) -> pd.Series:
         adv_sample = sample.copy()
         for feature, value in params.items():
-            key = feature.replace("_", ".", 1)
+            key = MAPPING_FEAT[feature]
 
-            if key == "ip.id":
+            if key in [
+                "ip.checksum",
+                "ip.id",
+                "udp.checksum",
+                "pfcp.seid",
+                "pfcp.f_teid.teid",
+                "pfcp.outer_hdr_creation.teidpfcp.flags",
+            ]:
                 adv_sample[key] = hex(value)
 
-            elif key == "ip.flags.df":
-                adv_sample[key] = value
-                # Modify the corresponding bit in ip.flags
-                adv_sample["ip.flags"] = hex(
-                    (adv_sample["ip.flags"] & ~0x02) | ((value & 0x01) << 1)
-                )
-
-            elif key == "ip.dsfield.dscp":
-                adv_sample[key] = value
-                # Modify the corresponding bits in ip.dsfield
-                adv_sample["ip.dsfield"] = hex(
-                    (adv_sample["ip.dsfield"] & 0x03) | ((value & 0x3F) << 2)
-                )
-
             elif key == "pfcp.recovery_time_stamp":
-                recovery_time = datetime.fromtimestamp(value, tz=timezone.utc)
-                times = gen_pfcp_times_exp(recovery_time)
-                adv_sample["pfcp.recovery_time_stamp"] = times["recovery_time_stamp"]
-                adv_sample["pfcp.time_of_first_packet"] = times["time_of_first_packet"]
-                adv_sample["pfcp.time_of_last_packet"] = times["time_of_last_packet"]
-                adv_sample["pfcp.end_time"] = times["end_time"]
-
-            elif key == "pfcp.response_time":
-                adv_sample[key] = value / 1_000_000.0
-
-            elif key == "udp.srcport":
-                adv_sample[key] = value
-                adv_sample["udp.port"] = value
-
-            elif key == "tcp.srcport":
-                adv_sample[key] = value
-                adv_sample["tcp.port"] = value
+                adv_sample[key] = datetime.fromtimestamp(value).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
 
             else:
                 adv_sample[key] = value
 
         return adv_sample
 
-    def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
-        base_param = ng.p.Dict(
-            # IP layer
-            ip_ttl=ng.p.Scalar(lower=1, upper=255).set_integer_casting(),
-            ip_id=ng.p.Scalar(lower=0, upper=2**16 - 1).set_integer_casting(),
-            ip_flags_df=ng.p.Choice([0, 1]),
-            ip_dsfield_dscp=ng.p.Scalar(lower=0, upper=63).set_integer_casting(),
 
-            # PFCP layer
-            pfcp_duration_measurement=ng.p.Scalar(
-                lower=0, upper=2**32 - 1
-            ).set_integer_casting(),
-            pfcp_response_time=ng.p.Scalar(lower=0, upper=5000),
-            pfcp_recovery_time_stamp=ng.p.Scalar(
-                lower=int(
-                    datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp()
-                ),
-                upper=int(
-                    datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp()
-                )
-                - 1,
-            ).set_integer_casting(),
-            pfcp_volume_measurement_dlnop=ng.p.Scalar(
-                lower=0, upper=2**32 - 1
-            ).set_integer_casting(),
-            pfcp_volume_measurement_dlvol=ng.p.Scalar(
-                lower=0, upper=2**32 - 1
-            ).set_integer_casting(),
-            pfcp_volume_measurement_tonop=ng.p.Scalar(
-                lower=0, upper=2**32 - 1
-            ).set_integer_casting(),
-            pfcp_volume_measurement_tovol=ng.p.Scalar(
-                lower=0, upper=2**32 - 1
-            ).set_integer_casting(),
-            # pfcp_user_id_imei=ng.p.Scalar(
-            #     lower=0, upper=999999999999999
-            # ).set_integer_casting(),
-            pfcp_ue_ip_address_flag_sd=ng.p.Choice([0, 1]),
-            pfcp_f_teid_flags_ch=ng.p.Choice([0, 1]),
-            pfcp_f_teid_flags_ch_id=ng.p.Choice([0, 1]),
-            pfcp_f_teid_flags_v6=ng.p.Choice([0, 1]),
-        )
-
-        if is_tcp:
-            param = ng.p.Dict(
-                **base_param,
-                tcp_srcport=ng.p.Scalar(lower=0, upper=65000).set_integer_casting(),
-                tcp_seq_raw=ng.p.Scalar(lower=0, upper=2**32 - 1).set_integer_casting(),
-                tcp_ack_raw=ng.p.Scalar(lower=0, upper=2**32 - 1).set_integer_casting(),
-                tcp_flags_urg=ng.p.Choice([0, 1]),
-                tcp_flags_ack=ng.p.Choice([0, 1]),
-                tcp_flags_psh=ng.p.Choice([0, 1]),
-                tcp_flags_rst=ng.p.Choice([0, 1]),
-                tcp_flags_syn=ng.p.Choice([0, 1]),
-                tcp_flags_fin=ng.p.Choice([0, 1]),
-                tcp_options_timestamp_tsval=ng.p.Scalar(
-                    lower=0, upper=2**32 - 1
-                ).set_integer_casting(),
-                tcp_options_timestamp_tsecr=ng.p.Scalar(
-                    lower=0, upper=2**32 - 1
-                ).set_integer_casting(),
-                tcp_window_size_value=ng.p.Scalar(
-                    lower=0, upper=2**16 - 1
-                ).set_integer_casting(),
-            )
-        else:
-            param = ng.p.Dict(
-                **base_param,
-                udp_srcport=ng.p.Scalar(lower=0, upper=65000).set_integer_casting(),
-            )
-
-        param.random_state = np.random.RandomState(42)
-
-        return self._optimizer_cls(parametrization=param, budget=self._query_budget)
-
-
-def gen_pfcp_times_exp(
-    recovery_time_stamp: datetime,
-    mean_start_delay_sec: int = 30 * 60,  # Tipicaly within 30 min from recovery
-    mean_session_duration_sec: int = 20 * 60,  # Average duration 20 min
-    mean_end_delay_sec: int = 30,  # Shortly after last pkt (~30s)
-) -> Dict[str, str]:
-    def exp_sec(mean: float) -> int:
-        """Generates an exponential random variable in seconds with given mean."""
-        return max(0, int(random.expovariate(1.0 / mean)))
-
-    # Generates PFCP time fields based on exponential distributions
-    start_offset = exp_sec(mean_start_delay_sec)
-    time_of_first_packet = recovery_time_stamp + timedelta(seconds=start_offset)
-
-    traffic_duration = exp_sec(mean_session_duration_sec)
-    time_of_last_packet = time_of_first_packet + timedelta(seconds=traffic_duration)
-
-    end_delay = exp_sec(mean_end_delay_sec)
-    end_time = time_of_last_packet + timedelta(seconds=end_delay)
-
-    # Format timestamps with random nanoseconds
-    def fmt(dt: datetime) -> str:
-        base = dt.strftime("%b %d, %Y %H:%M:%S")
-        nanos = random.randint(0, 999_999_999)
-        return f"{base}.{nanos:09d} UTC"
-
-    return {
-        "recovery_time_stamp": fmt(recovery_time_stamp),
-        "time_of_first_packet": fmt(time_of_first_packet),
-        "time_of_last_packet": fmt(time_of_last_packet),
-        "end_time": fmt(end_time),
-    }
+MAPPING_FEAT = {
+    # IP layer
+    "ip_ttl": "ip.ttl",
+    "ip_id": "ip.id",
+    "ip_len": "ip.len",
+    "ip_checksum": "ip.checksum",
+    # UDP layer
+    "udp_length": "udp.length",
+    "udp_checksum": "udp.checksum",
+    # PFCP layer
+    "pfcp_apply_action_buff": "pfcp.apply_action.buff",
+    "pfcp_apply_action_forw": "pfcp.apply_action.forw",
+    "pfcp_apply_action_nocp": "pfcp.apply_action.nocp",
+    "pfcp_f_teid_flags_ch": "pfcp.f_teid_flags.ch",
+    "pfcp_f_teid_flags_ch_id": "pfcp.f_teid_flags.ch_id",
+    "pfcp_f_teid_flags_v6": "pfcp.f_teid_flags.v6",
+    "pfcp_s": "pfcp.s",
+    "pfcp_dst_interface": "pfcp.dst_interface",
+    "pfcp_duration_measurement": "pfcp.duration_measurement",
+    "pfcp_ie_len": "pfcp.ie_len",
+    "pfcp_ie_type": "pfcp.ie_type",
+    "pfcp_length": "pfcp.length",
+    "pfcp_msg_type": "pfcp.msg_type",
+    "pfcp_pdr_id": "pfcp.pdr_id",
+    "pfcp_recovery_time_stamp": "pfcp.recovery_time_stamp",
+    "pfcp_response_time": "pfcp.response_time",
+    "pfcp_response_to": "pfcp.response_to",
+    "pfcp_seid": "pfcp.seid",
+    "pfcp_seqno": "pfcp.seqno",
+    "pfcp_f_teid_teid": "pfcp.f_teid.teid",
+    "pfcp_outer_hdr_creation_teid": "pfcp.outer_hdr_creation.teid",
+    "pfcp_flags": "pfcp.flags",
+    "pfcp_volume_measurement_dlnop": "pfcp.volume_measurement.dlnop",
+    "pfcp_volume_measurement_dlvol": "pfcp.volume_measurement.dlvol",
+    "pfcp_volume_measurement_tonop": "pfcp.volume_measurement.tonop",
+    "pfcp_volume_measurement_tovol": "pfcp.volume_measurement.tovol",
+}
 
 
 if __name__ == "__main__":
     import joblib
-    from pyod.models.hbos import HBOS
 
-    path = Path(__file__).parent.parent / "data/cleaned_datasets/dataset_3_cleaned.csv"
-    dataset = pd.read_csv(path, sep=";", low_memory=False)
+    path = Path(__file__).parent.parent / "data/datasets/malicious_test_dataset.csv"
+    dataset = pd.read_csv(path, sep=";", low_memory=False).drop(
+        columns=["ip.opt.time_stamp"]
+    )
 
     # optimizer_cls = ng.optimizers.EvolutionStrategy(
     #     recombination_ratio=0.9,
@@ -323,11 +270,11 @@ if __name__ == "__main__":
 
     bb = BlackBoxAttack(optimizer_cls)
 
-    detector = joblib.load(
+    detector: Detector = joblib.load(
         Path(__file__).parent.parent / "data/trained_models/IForest.pkl"
     )
 
-    results_path = Path(__file__).parent.parent / "results/hbos.json"
+    results_path = Path(__file__).parent.parent / "results/blackbox_attack/iforest.json"
     if results_path.exists():
         with results_path.open("r") as f:
             results = json.load(f)
@@ -339,7 +286,4 @@ if __name__ == "__main__":
             logger.info(f"Sample {idx} already attacked. Skipping.")
             continue
 
-        if pd.isna(row["ip.opt.time_stamp"]):
-            continue
-
-        bb.run(idx, dataset.copy(), detector, query_budget=60)
+        bb.run(idx, row, detector, query_budget=60)
