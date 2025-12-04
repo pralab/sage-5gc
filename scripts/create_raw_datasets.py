@@ -1,4 +1,7 @@
-"""Script to create initial train and test datasets from raw datasets."""
+"""
+Script to create initial train and test datasets from raw datasets.
+It filters out TCP and ICMP packets, dropping TCP-related features.
+"""
 
 from pathlib import Path
 
@@ -44,25 +47,27 @@ df3 = pd.read_csv(
     low_memory=False,
 )
 
-dataset_dir = Path(__file__).parent.parent / "data/datasets"
-dataset_dir.mkdir(exist_ok=True)
 
-# Create train dataset concatenating dataset 1 and legitimate samples of dataset 2
-# legitimate samples of dataset 2 are those with label ip.opt.time_stamp = NaN,
-df_train = pd.concat([df1, df2[df2["ip.opt.time_stamp"].isna()]], ignore_index=True)
-print("Train dataset shape:", df_train.shape)
+if __name__ == "__main__":
+    dataset_dir = Path(__file__).parent.parent / "data/datasets"
+    dataset_dir.mkdir(exist_ok=True)
 
-# Create test dataset with all samples of dataset 3 and attack samples of dataset 2
-df_test = pd.concat([df2[~df2["ip.opt.time_stamp"].isna()], df3], ignore_index=True)
-print("Test dataset shape:", df_test.shape)
+    # Create train dataset concatenating dataset 1 and legitimate samples of dataset 2
+    # legitimate samples of dataset 2 are those with label ip.opt.time_stamp = NaN,
+    df_train = pd.concat([df1, df2[df2["ip.opt.time_stamp"].isna()]], ignore_index=True)
+    print("Train dataset shape:", df_train.shape)
 
-df_train_filtered = drop_tcp_and_icmp_packets(df_train)
-df_test_filtered = drop_tcp_and_icmp_packets(df_test)
+    # Create test dataset with all samples of dataset 3 and attack samples of dataset 2
+    df_test = pd.concat([df2[~df2["ip.opt.time_stamp"].isna()], df3], ignore_index=True)
+    print("Test dataset shape:", df_test.shape)
 
-# Remove TCP-related columns
-tcp_columns = [col for col in df_train_filtered.columns if col.startswith("tcp.")]
-df_train_filtered.drop(columns=tcp_columns, inplace=True)
-df_test_filtered.drop(columns=tcp_columns, inplace=True)
+    df_train_filtered = drop_tcp_and_icmp_packets(df_train)
+    df_test_filtered = drop_tcp_and_icmp_packets(df_test)
 
-df_train_filtered.to_csv(dataset_dir / "train_dataset.csv", sep=";", index=False)
-df_test_filtered.to_csv(dataset_dir / "test_dataset.csv", sep=";", index=False)
+    # Remove TCP-related columns
+    tcp_columns = [col for col in df_train_filtered.columns if col.startswith("tcp.")]
+    df_train_filtered.drop(columns=tcp_columns, inplace=True)
+    df_test_filtered.drop(columns=tcp_columns, inplace=True)
+
+    df_train_filtered.to_csv(dataset_dir / "train_dataset.csv", sep=";", index=False)
+    df_test_filtered.to_csv(dataset_dir / "test_dataset.csv", sep=";", index=False)

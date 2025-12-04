@@ -19,6 +19,77 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
+FEATURES_ATTACK = {
+    "flooding": [
+        "pfcp.seqno",
+        "pfcp.ue_ip_addr_ipv4",
+    ],
+    "session_deletion": [
+        "pfcp.s",
+        "pfcp.seid",
+    ],
+    "session_modification": [
+        "pfcp.apply_action.buff",
+        "pfcp.apply_action.forw",
+        "pfcp.apply_action.nocp",
+        "pfcp.outer_hdr_creation.ipv4",
+        "pfcp.outer_hdr_creation.teid",
+        "pfcp.dst_interface",
+    ],
+    "upf_pdn0_fault": [
+        "pfcp.node_id_ipv4",
+        "pfcp.f_seid.ipv4",
+        "pfcp.ue_ip_addr_ipv4",
+        "pfcp.pdr_id",
+        "pfcp.f_teid_flags.ch",
+        "pfcp.f_teid_flags.ch_id",
+        "pfcp.f_teid_flags.v6",
+    ],
+}
+
+MAPPING_FEAT = {
+    # IP layer
+    "ip_ttl": "ip.ttl",
+    "ip_id": "ip.id",
+    "ip_len": "ip.len",
+    "ip_checksum": "ip.checksum",
+    # UDP layer
+    "udp_length": "udp.length",
+    "udp_checksum": "udp.checksum",
+    # PFCP layer
+    "pfcp_apply_action_buff": "pfcp.apply_action.buff",
+    "pfcp_apply_action_forw": "pfcp.apply_action.forw",
+    "pfcp_apply_action_nocp": "pfcp.apply_action.nocp",
+    "pfcp_f_teid_flags_ch": "pfcp.f_teid_flags.ch",
+    "pfcp_f_teid_flags_ch_id": "pfcp.f_teid_flags.ch_id",
+    "pfcp_f_teid_flags_v6": "pfcp.f_teid_flags.v6",
+    "pfcp_s": "pfcp.s",
+    "pfcp_dst_interface": "pfcp.dst_interface",
+    "pfcp_duration_measurement": "pfcp.duration_measurement",
+    "pfcp_ie_len": "pfcp.ie_len",
+    "pfcp_ie_type": "pfcp.ie_type",
+    "pfcp_length": "pfcp.length",
+    "pfcp_msg_type": "pfcp.msg_type",
+    "pfcp_pdr_id": "pfcp.pdr_id",
+    "pfcp_recovery_time_stamp": "pfcp.recovery_time_stamp",
+    "pfcp_response_time": "pfcp.response_time",
+    "pfcp_response_to": "pfcp.response_to",
+    "pfcp_seid": "pfcp.seid",
+    "pfcp_seqno": "pfcp.seqno",
+    "pfcp_f_teid_teid": "pfcp.f_teid.teid",
+    "pfcp_outer_hdr_creation_teid": "pfcp.outer_hdr_creation.teid",
+    "pfcp_flags": "pfcp.flags",
+    "pfcp_volume_measurement_dlnop": "pfcp.volume_measurement.dlnop",
+    "pfcp_volume_measurement_dlvol": "pfcp.volume_measurement.dlvol",
+    "pfcp_volume_measurement_tonop": "pfcp.volume_measurement.tonop",
+    "pfcp_volume_measurement_tovol": "pfcp.volume_measurement.tovol",
+    "pfcp_node_id_ipv4": "pfcp.node_id_ipv4",
+    "pfcp_f_seid_ipv4": "pfcp.f_seid.ipv4",
+    "pfcp_f_teid_ipv4_addr": "pfcp.f_teid.ipv4_addr",
+    "pfcp_ue_ip_addr_ipv4": "pfcp.ue_ip_addr_ipv4",
+    "pfcp_outer_hdr_creation_ipv4": "pfcp.outer_hdr_creation.ipv4"
+}
+
 class BlackBoxAttack:
     """Black-box attack for network traffic classifiers."""
 
@@ -41,9 +112,9 @@ class BlackBoxAttack:
         self,
         sample_idx: int,
         sample: pd.Series,
-        detector_name: str,
         detector: Detector,
         query_budget: int = 100,
+        results_path: Path | str = None,
     ) -> None:
         """
         Run the black-box attack on a given sample.
@@ -54,12 +125,12 @@ class BlackBoxAttack:
             The index of the sample in the dataset.
         sample: pd.Series
             The sample to attack.
-        detector_name : str
-            The name of the detector being attacked.
         detector : Detector
             The detector object with a get_score method.
         query_budget : int
             The maximum number of queries allowed for the attack.
+        results_path : Path | str
+            The path to save the attack results.
         """
         self._query_budget = query_budget
 
@@ -223,45 +294,6 @@ class BlackBoxAttack:
         return adv_sample
 
 
-MAPPING_FEAT = {
-    # IP layer
-    "ip_ttl": "ip.ttl",
-    "ip_id": "ip.id",
-    "ip_len": "ip.len",
-    "ip_checksum": "ip.checksum",
-    # UDP layer
-    "udp_length": "udp.length",
-    "udp_checksum": "udp.checksum",
-    # PFCP layer
-    "pfcp_apply_action_buff": "pfcp.apply_action.buff",
-    "pfcp_apply_action_forw": "pfcp.apply_action.forw",
-    "pfcp_apply_action_nocp": "pfcp.apply_action.nocp",
-    "pfcp_f_teid_flags_ch": "pfcp.f_teid_flags.ch",
-    "pfcp_f_teid_flags_ch_id": "pfcp.f_teid_flags.ch_id",
-    "pfcp_f_teid_flags_v6": "pfcp.f_teid_flags.v6",
-    "pfcp_s": "pfcp.s",
-    "pfcp_dst_interface": "pfcp.dst_interface",
-    "pfcp_duration_measurement": "pfcp.duration_measurement",
-    "pfcp_ie_len": "pfcp.ie_len",
-    "pfcp_ie_type": "pfcp.ie_type",
-    "pfcp_length": "pfcp.length",
-    "pfcp_msg_type": "pfcp.msg_type",
-    "pfcp_pdr_id": "pfcp.pdr_id",
-    "pfcp_recovery_time_stamp": "pfcp.recovery_time_stamp",
-    "pfcp_response_time": "pfcp.response_time",
-    "pfcp_response_to": "pfcp.response_to",
-    "pfcp_seid": "pfcp.seid",
-    "pfcp_seqno": "pfcp.seqno",
-    "pfcp_f_teid_teid": "pfcp.f_teid.teid",
-    "pfcp_outer_hdr_creation_teid": "pfcp.outer_hdr_creation.teid",
-    "pfcp_flags": "pfcp.flags",
-    "pfcp_volume_measurement_dlnop": "pfcp.volume_measurement.dlnop",
-    "pfcp_volume_measurement_dlvol": "pfcp.volume_measurement.dlvol",
-    "pfcp_volume_measurement_tonop": "pfcp.volume_measurement.tonop",
-    "pfcp_volume_measurement_tovol": "pfcp.volume_measurement.tovol",
-}
-
-
 if __name__ == "__main__":
     import joblib
 
@@ -277,6 +309,7 @@ if __name__ == "__main__":
     #     offsprings=20,
     #     ranker="simple",
     # )
+
     optimizer_cls = ng.optimizers.DifferentialEvolution(
         popsize=20,
         crossover="twopoints",
@@ -304,4 +337,4 @@ if __name__ == "__main__":
             logger.info(f"Sample {idx} already attacked. Skipping.")
             continue
 
-        bb.run(idx, row, detector_name, detector, query_budget=100)
+        bb.run(idx, row, detector, query_budget=100, results_path)
