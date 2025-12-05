@@ -130,7 +130,7 @@ if __name__ == "__main__":
         "INNE",
         "MCD",
     ]
-    test_data_path = Path(__file__).parent.parent / "data/datasets/test_dataset.csv"
+    test_data_path = Path(__file__).parent.parent / "data/datasets/test_dataset_filled.csv"
     output_dir = Path(__file__).parent.parent / "results/figures"
     output_dir.mkdir(exist_ok=True)
 

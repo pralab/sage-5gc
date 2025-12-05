@@ -18,77 +18,170 @@ logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+ATTACK_TYPE_MAP = {
+    0: "flooding",  # PFCP Flooding
+    1: "session_deletion",  # PFCP Deletion
+    2: "session_modification",  # PFCP Modification
+    5: "udf_pdn0_fault",  # UPF PDN-0 Fault
+    6: "restoration_teid",  # PFCP Restoration-TEID
+}
 
+# These features cannot be modified during the attack, as they are
+# essential for preserving the original intent of the malicious sample.
 FEATURES_ATTACK = {
-    "flooding": [
-        "pfcp.seqno",
-        "pfcp.ue_ip_addr_ipv4",
-    ],
+    "flooding": ["pfcp.msg_type"],
     "session_deletion": [
-        "pfcp.s",
-        "pfcp.seid",
+        "pfcp.msg_type",
     ],
     "session_modification": [
-        "pfcp.apply_action.buff",
-        "pfcp.apply_action.forw",
-        "pfcp.apply_action.nocp",
-        "pfcp.outer_hdr_creation.ipv4",
-        "pfcp.outer_hdr_creation.teid",
-        "pfcp.dst_interface",
+        "pfcp.msg_type",
+        "pfcp.seid",
     ],
     "upf_pdn0_fault": [
         "pfcp.node_id_ipv4",
-        "pfcp.f_seid.ipv4",
-        "pfcp.ue_ip_addr_ipv4",
         "pfcp.pdr_id",
         "pfcp.f_teid_flags.ch",
         "pfcp.f_teid_flags.ch_id",
         "pfcp.f_teid_flags.v6",
     ],
+    "restoration_teid": [
+        "pfcp.f_teid.teid",
+        "pfcp.pdr_id",
+    ],
 }
 
 MAPPING_FEAT = {
     # IP layer
-    "ip_ttl": "ip.ttl",
-    "ip_id": "ip.id",
-    "ip_len": "ip.len",
-    "ip_checksum": "ip.checksum",
+    "ip.ttl": ng.p.Scalar(lower=2, upper=200).set_integer_casting(),
+    "ip.id": ng.p.Scalar(lower=0, upper=65534).set_integer_casting(),
+    "ip.len": ng.p.Scalar(lower=44, upper=653).set_integer_casting(),
+    "ip.checksum": ng.p.Scalar(lower=54, upper=65525).set_integer_casting(),
     # UDP layer
-    "udp_length": "udp.length",
-    "udp_checksum": "udp.checksum",
+    "udp.length": ng.p.Scalar(lower=24, upper=633).set_integer_casting(),
+    "udp.checksum": ng.p.Scalar(lower=2389, upper=41240).set_integer_casting(),
     # PFCP layer
-    "pfcp_apply_action_buff": "pfcp.apply_action.buff",
-    "pfcp_apply_action_forw": "pfcp.apply_action.forw",
-    "pfcp_apply_action_nocp": "pfcp.apply_action.nocp",
-    "pfcp_f_teid_flags_ch": "pfcp.f_teid_flags.ch",
-    "pfcp_f_teid_flags_ch_id": "pfcp.f_teid_flags.ch_id",
-    "pfcp_f_teid_flags_v6": "pfcp.f_teid_flags.v6",
-    "pfcp_s": "pfcp.s",
-    "pfcp_dst_interface": "pfcp.dst_interface",
-    "pfcp_duration_measurement": "pfcp.duration_measurement",
-    "pfcp_ie_len": "pfcp.ie_len",
-    "pfcp_ie_type": "pfcp.ie_type",
-    "pfcp_length": "pfcp.length",
-    "pfcp_msg_type": "pfcp.msg_type",
-    "pfcp_pdr_id": "pfcp.pdr_id",
-    "pfcp_recovery_time_stamp": "pfcp.recovery_time_stamp",
-    "pfcp_response_time": "pfcp.response_time",
-    "pfcp_response_to": "pfcp.response_to",
-    "pfcp_seid": "pfcp.seid",
-    "pfcp_seqno": "pfcp.seqno",
-    "pfcp_f_teid_teid": "pfcp.f_teid.teid",
-    "pfcp_outer_hdr_creation_teid": "pfcp.outer_hdr_creation.teid",
-    "pfcp_flags": "pfcp.flags",
-    "pfcp_volume_measurement_dlnop": "pfcp.volume_measurement.dlnop",
-    "pfcp_volume_measurement_dlvol": "pfcp.volume_measurement.dlvol",
-    "pfcp_volume_measurement_tonop": "pfcp.volume_measurement.tonop",
-    "pfcp_volume_measurement_tovol": "pfcp.volume_measurement.tovol",
-    "pfcp_node_id_ipv4": "pfcp.node_id_ipv4",
-    "pfcp_f_seid_ipv4": "pfcp.f_seid.ipv4",
-    "pfcp_f_teid_ipv4_addr": "pfcp.f_teid.ipv4_addr",
-    "pfcp_ue_ip_addr_ipv4": "pfcp.ue_ip_addr_ipv4",
-    "pfcp_outer_hdr_creation_ipv4": "pfcp.outer_hdr_creation.ipv4"
+    "pfcp.apply_action.buff": ng.p.Choice([True, False]),
+    "pfcp.apply_action.forw": ng.p.Choice([True, False]),
+    "pfcp.apply_action.nocp": ng.p.Choice([True, False]),
+    "pfcp.f_teid_flags.ch": ng.p.Choice([True, False]),
+    "pfcp.f_teid_flags.ch_id": ng.p.Choice([True, False]),
+    "pfcp.f_teid_flags.v6": ng.p.Choice([True, False]),
+    "pfcp.s": ng.p.Choice([True, False]),
+    "pfcp.dst_interface": ng.p.Scalar(lower=0, upper=1).set_integer_casting(),
+    "pfcp.duration_measurement": ng.p.Scalar(lower=1747212643, upper=1753894838),
+    "pfcp.ie_len": ng.p.Scalar(lower=1, upper=50).set_integer_casting(),
+    "pfcp.ie_type": ng.p.Scalar(lower=10, upper=96).set_integer_casting(),
+    "pfcp.length": ng.p.Scalar(lower=12, upper=621).set_integer_casting(),
+    "pfcp.msg_type": ng.p.Scalar(lower=1, upper=57).set_integer_casting(),
+    "pfcp.pdr_id": ng.p.Scalar(lower=1, upper=2).set_integer_casting(),
+    "pfcp.recovery_time_stamp": ng.p.Scalar(
+        lower=1747207882, upper=1753892199
+    ).set_integer_casting(),
+    "pfcp.response_time": ng.p.Scalar(lower=2.0095e-05, upper=0.041239073),
+    "pfcp.response_to": ng.p.Scalar(lower=1, upper=2565).set_integer_casting(),
+    "pfcp.seid": ng.p.Scalar(lower=0, upper=4095).set_integer_casting(),
+    "pfcp.seqno": ng.p.Scalar(lower=0, upper=202364).set_integer_casting(),
+    "pfcp.f_teid.teid": ng.p.Scalar(lower=29, upper=65507).set_integer_casting(),
+    "pfcp.outer_hdr_creation.teid": ng.p.Scalar(
+        lower=1, upper=6326
+    ).set_integer_casting(),
+    "pfcp.flags": ng.p.Scalar(lower=32, upper=33).set_integer_casting(),
+    "pfcp.volume_measurement.dlnop": ng.p.Scalar(
+        lower=0, upper=13195
+    ).set_integer_casting(),
+    "pfcp.volume_measurement.dlvol": ng.p.Scalar(
+        lower=0, upper=17834134
+    ).set_integer_casting(),
+    "pfcp.volume_measurement.tonop": ng.p.Scalar(
+        lower=0, upper=13195
+    ).set_integer_casting(),
+    "pfcp.volume_measurement.tovol": ng.p.Scalar(
+        lower=0, upper=17834134
+    ).set_integer_casting(),
+    "pfcp.node_id_ipv4": ng.p.Choice(
+        [
+            "192.168.130.144",
+            "192.168.14.164",
+            "192.168.14.153",
+            "192.168.14.129",
+            "192.168.14.150",
+            "192.168.14.176",
+            "192.168.130.176",
+        ]
+    ),
+    "pfcp.f_seid.ipv4": ng.p.Choice(
+        [
+            "192.168.14.155",
+            "192.168.130.144",
+            "192.168.14.164",
+            "192.168.14.153",
+            "192.168.14.129",
+            "192.168.14.150",
+            "192.168.14.176",
+            "192.168.130.176",
+        ]
+    ),
+    "pfcp.f_teid.ipv4_addr": ng.p.Choice(
+        [
+            "192.168.130.144",
+            "192.168.14.153",
+            "192.168.14.150",
+            "192.168.130.176",
+            "192.168.14.162",
+            "192.168.130.179",
+        ]
+    ),
+    "pfcp.ue_ip_addr_ipv4": ng.p.Choice(
+        [
+            "10.45.5.12",
+            "10.45.6.10",
+            "10.45.1.90",
+            "10.45.3.174",
+            "10.45.4.226",
+            "10.45.4.107",
+            "10.45.4.97",
+            "10.45.5.82",
+            "10.45.4.70",
+            "10.45.5.56",
+            "10.45.4.100",
+            "10.45.5.194",
+            "10.45.3.38",
+            "10.45.1.26",
+            "10.45.3.182",
+            "10.45.3.132",
+            "10.45.4.135",
+            "10.45.2.54",
+            "10.45.3.36",
+            "10.45.4.48",
+            "10.45.4.93",
+            "10.45.4.155",
+            "10.45.3.214",
+            "10.45.4.35",
+            "10.45.3.0",
+            "10.45.4.60",
+            "10.45.4.223",
+            "10.45.3.242",
+            "10.45.5.67",
+            "10.45.6.157",
+        ]
+    ),
+    "pfcp.outer_hdr_creation.ipv4": ng.p.Choice(
+        [
+            "192.168.14.155",
+            "192.168.130.178",
+            "192.168.14.164",
+            "192.168.130.138",
+            "192.168.14.129",
+            "192.168.130.139",
+            "192.168.14.176",
+            "192.168.130.186",
+            "192.168.130.182",
+            "192.168.130.179",
+            "192.168.130.181",
+        ]
+    ),
 }
+
 
 class BlackBoxAttack:
     """Black-box attack for network traffic classifiers."""
@@ -112,9 +205,10 @@ class BlackBoxAttack:
         self,
         sample_idx: int,
         sample: pd.Series,
+        attack_type: int,
         detector: Detector,
-        query_budget: int = 100,
         results_path: Path | str = None,
+        query_budget: int = 100,
     ) -> None:
         """
         Run the black-box attack on a given sample.
@@ -125,12 +219,15 @@ class BlackBoxAttack:
             The index of the sample in the dataset.
         sample: pd.Series
             The sample to attack.
+        attack_type : int
+            The type of attack of the sample.
         detector : Detector
             The detector object with a get_score method.
-        query_budget : int
             The maximum number of queries allowed for the attack.
         results_path : Path | str
             The path to save the attack results.
+        query_budget : int
+            The maximum number of queries allowed for the attack.
         """
         self._query_budget = query_budget
 
@@ -150,7 +247,7 @@ class BlackBoxAttack:
         # --------------------------
         # [Step 2] Set up optimizer
         # --------------------------
-        self._optimizer = self._init_optimizer(is_tcp=(sample["ip.proto"] == 6))
+        self._optimizer = self._init_optimizer(attack_type)
 
         # --------------------
         # [Step 3] Run attack
@@ -177,78 +274,30 @@ class BlackBoxAttack:
             sample_idx,
             best_params,
             best_loss,
-            detector_name,
-            loss < detector._detector.threshold_,
+            results_path,
+            bool(loss < detector._detector.threshold_),
         )
 
-    def _init_optimizer(self, is_tcp: bool) -> ng.optimizers.base.Optimizer:
-        param = ng.p.Dict(
-            # IP layer
-            ip_ttl=ng.p.Scalar(lower=2, upper=200).set_integer_casting(),
-            ip_id=ng.p.Scalar(lower=0, upper=65534).set_integer_casting(),
-            ip_len=ng.p.Scalar(lower=44, upper=653).set_integer_casting(),
-            ip_checksum=ng.p.Scalar(lower=54, upper=65525).set_integer_casting(),
-            # UDP layer
-            udp_length=ng.p.Scalar(lower=24, upper=633).set_integer_casting(),
-            udp_checksum=ng.p.Scalar(lower=2389, upper=41240).set_integer_casting(),
-            # PFCP layer
-            pfcp_apply_action_buff=ng.p.Choice([True, False]),
-            pfcp_apply_action_forw=ng.p.Choice([True, False]),
-            pfcp_apply_action_nocp=ng.p.Choice([True, False]),
-            pfcp_f_teid_flags_ch=ng.p.Choice([True, False]),
-            pfcp_f_teid_flags_ch_id=ng.p.Choice([True, False]),
-            pfcp_f_teid_flags_v6=ng.p.Choice([True, False]),
-            pfcp_s=ng.p.Choice([True, False]),
-            pfcp_dst_interface=ng.p.Scalar(lower=0, upper=1).set_integer_casting(),
-            pfcp_duration_measurement=ng.p.Scalar(
-                lower=1747212643, upper=1753894838
-            ).set_integer_casting(),
-            pfcp_ie_len=ng.p.Scalar(lower=1, upper=50).set_integer_casting(),
-            pfcp_ie_type=ng.p.Scalar(lower=10, upper=96).set_integer_casting(),
-            pfcp_length=ng.p.Scalar(lower=12, upper=621).set_integer_casting(),
-            pfcp_msg_type=ng.p.Scalar(lower=1, upper=57).set_integer_casting(),
-            pfcp_pdr_id=ng.p.Scalar(lower=1, upper=2).set_integer_casting(),
-            pfcp_recovery_time_stamp=ng.p.Scalar(
-                lower=1747207882, upper=1753892199
-            ).set_integer_casting(),
-            pfcp_response_time=ng.p.Scalar(lower=2.0095e-05, upper=0.041239073),
-            pfcp_response_to=ng.p.Scalar(lower=1, upper=2565).set_integer_casting(),
-            pfcp_seid=ng.p.Scalar(lower=0, upper=4095).set_integer_casting(),
-            pfcp_seqno=ng.p.Scalar(lower=0, upper=202364).set_integer_casting(),
-            pfcp_f_teid_teid=ng.p.Scalar(lower=29, upper=65507).set_integer_casting(),
-            pfcp_outer_hdr_creation_teid=ng.p.Scalar(
-                lower=1, upper=6326
-            ).set_integer_casting(),
-            pfcp_flags=ng.p.Scalar(lower=32, upper=33).set_integer_casting(),
-            pfcp_volume_measurement_dlnop=ng.p.Scalar(
-                lower=0, upper=13195
-            ).set_integer_casting(),
-            pfcp_volume_measurement_dlvol=ng.p.Scalar(
-                lower=0, upper=17834134
-            ).set_integer_casting(),
-            pfcp_volume_measurement_tonop=ng.p.Scalar(
-                lower=0, upper=13195
-            ).set_integer_casting(),
-            pfcp_volume_measurement_tovol=ng.p.Scalar(
-                lower=0, upper=17834134
-            ).set_integer_casting(),
-        )
-        param.random_state = np.random.RandomState(42)
-        return self._optimizer_cls(parametrization=param, budget=self._query_budget)
+    def _init_optimizer(self, attack_type: int) -> ng.optimizers.base.Optimizer:
+        params = {}
+        for feature, parametrization in MAPPING_FEAT.items():
+            # Skip features that should not be modified to preserve attack intent
+            if feature not in FEATURES_ATTACK[ATTACK_TYPE_MAP[attack_type]]:
+                params[feature] = parametrization
+
+        params = ng.p.Dict(**params)
+        params.random_state = np.random.RandomState(42)
+        return self._optimizer_cls(parametrization=params, budget=self._query_budget)
 
     def _save_results(
         self,
         sample_idx: int,
         best_params: dict,
         best_loss: float,
-        detector_name: str,
+        results_path: Path | str,
         evaded: bool,
     ) -> None:
-        results_path = (
-            Path(__file__).parent.parent
-            / f"results/blackbox_attack/{detector_name}.json"
-        )
-        if results_path.exists():
+        if Path(results_path).exists():
             with results_path.open("r") as f:
                 results = json.load(f)
         else:
@@ -260,7 +309,7 @@ class BlackBoxAttack:
             "evaded": bool(evaded),
         }
 
-        with results_path.open("w", encoding="utf-8") as f:
+        with Path(results_path).open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=4)
 
     def _compute_loss(self, x_adv: pd.Series, detector: Detector) -> float:
@@ -297,10 +346,12 @@ class BlackBoxAttack:
 if __name__ == "__main__":
     import joblib
 
-    path = Path(__file__).parent.parent / "data/datasets/malicious_test_dataset.csv"
-    dataset = pd.read_csv(path, sep=";", low_memory=False).drop(
-        columns=["ip.opt.time_stamp"]
+    path = (
+        Path(__file__).parent.parent / "data/datasets/malicious_test_dataset_filled.csv"
     )
+    dataset = pd.read_csv(path, sep=";", low_memory=False)
+    labels = dataset["ip.opt.time_stamp"].copy()
+    dataset = dataset.drop(columns=["ip.opt.time_stamp"])
 
     # optimizer_cls = ng.optimizers.EvolutionStrategy(
     #     recombination_ratio=0.9,
@@ -337,4 +388,6 @@ if __name__ == "__main__":
             logger.info(f"Sample {idx} already attacked. Skipping.")
             continue
 
-        bb.run(idx, row, detector, query_budget=100, results_path)
+        bb.run(
+            idx, row, int(labels.iloc[idx][0]), detector, results_path, query_budget=100
+        )
