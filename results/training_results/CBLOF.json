@@ -1,0 +1,9 @@
+{
+  "model": "CBLOF",
+  "best_params": "{'alpha': 0.5, 'beta': 10, 'check_estimator': False, 'clustering_estimator': KMeans(n_clusters=5), 'contamination': 0.01, 'random_state': 42}",
+  "accuracy": 0.8533297140788998,
+  "f1": 0.3523771474230923,
+  "roc_auc": 0.6069350145489816,
+  "precision": 1.0,
+  "recall": 0.21387002909796315
+}

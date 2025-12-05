@@ -1,0 +1,12 @@
+{
+  "model": "HBOS",
+  "best_params": {
+    "contamination": 0.01,
+    "n_bins": 25
+  },
+  "accuracy": 0.9174809989142236,
+  "f1": 0.8189038919777601,
+  "roc_auc": 0.9492769744160178,
+  "precision": 0.6933422999327505,
+  "recall": 1.0
+}
