@@ -22,7 +22,7 @@ ATTACK_TYPE_MAP = {
     0: "flooding",  # PFCP Flooding
     1: "session_deletion",  # PFCP Deletion
     2: "session_modification",  # PFCP Modification
-    5: "udf_pdn0_fault",  # UPF PDN-0 Fault
+    5: "upf_pdn0_fault",  # UPF PDN-0 Fault
     6: "restoration_teid",  # PFCP Restoration-TEID
 }
 
@@ -231,7 +231,7 @@ class BlackBoxAttack:
         """
         self._query_budget = query_budget
 
-        logger.info("Starting attack on sample...")
+        logger.info(f"Starting attack on sample {sample_idx}...")
 
         # --------------------------------------
         # [Step 1] Compute baseline predictions
@@ -373,13 +373,15 @@ if __name__ == "__main__":
     )
 
     results_path = (
-        Path(__file__).parent.parent / f"results/blackbox_attack/{detector_name}.json"
+        Path(__file__).parent.parent
+        / f"results/blackbox_attack/{optimizer_cls.__class__.__name__.lower()}/{detector_name.lower()}.json"
     )
     if results_path.exists():
         with results_path.open("r") as f:
             results = json.load(f)
     else:
         results = {}
+        results_path.parent.mkdir(parents=True, exist_ok=True)
 
     for idx, row in dataset.iterrows():
         if str(idx) in results:
