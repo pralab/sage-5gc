@@ -320,9 +320,7 @@ class BlackBoxAttack:
     ) -> pd.Series:
         adv_sample = sample.copy()
         for feature, value in params.items():
-            key = MAPPING_FEAT[feature]
-
-            if key in [
+            if feature in [
                 "ip.checksum",
                 "ip.id",
                 "udp.checksum",
@@ -330,15 +328,15 @@ class BlackBoxAttack:
                 "pfcp.f_teid.teid",
                 "pfcp.outer_hdr_creation.teidpfcp.flags",
             ]:
-                adv_sample[key] = hex(value)
+                adv_sample[feature] = hex(value)
 
-            elif key == "pfcp.recovery_time_stamp":
-                adv_sample[key] = datetime.fromtimestamp(value).strftime(
+            elif feature == "pfcp.recovery_time_stamp":
+                adv_sample[feature] = datetime.fromtimestamp(value).strftime(
                     "%Y-%m-%d %H:%M:%S"
                 )
 
             else:
-                adv_sample[key] = value
+                adv_sample[feature] = value
 
         return adv_sample
 
@@ -389,5 +387,5 @@ if __name__ == "__main__":
             continue
 
         bb.run(
-            idx, row, int(labels.iloc[idx][0]), detector, results_path, query_budget=100
+            idx, row, int(labels.iloc[idx]), detector, results_path, query_budget=100
         )

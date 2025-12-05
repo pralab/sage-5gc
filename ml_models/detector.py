@@ -19,12 +19,12 @@ class Detector(BaseEstimator):
 
     def fit(
         self,
-        df_train: pd.DataFrame,
+        df: pd.DataFrame,
         output_dir: str | None,
         skip_preprocess: bool = False,
     ) -> "Detector":
-        df = self._preprocessor.train(df_train, output_dir, skip_preprocess)
         X = df.copy()
+        X = self._preprocessor.train(X, output_dir, skip_preprocess)
         X = X[sorted(X.columns)]
 
         self._detector.fit(X.values)
@@ -34,23 +34,22 @@ class Detector(BaseEstimator):
 
     def predict(
         self,
-        df_test: pd.DataFrame,
+        df: pd.DataFrame,
         output_dir: str | None,
         skip_preprocess: bool = False,
     ) -> tuple[np.ndarray, np.ndarray]:
         if not self._trained:
             raise ValueError("Model not trained, call fit() before predict().")
 
-        df = self._preprocessor.test(df_test, output_dir, skip_preprocess)
         X = df.copy()
+        X = self._preprocessor.test(X, output_dir, skip_preprocess)
         X = X[sorted(X.columns)]
+
         return self._detector.predict(X.values)
 
-    def decision_function(
-        self, df_test: pd.DataFrame, skip_preprocess: bool = False
-    ) -> np.ndarray:
-        X = df_test.copy()
-        X = self._preprocessor.test(X, None, skip_preprocess)
+    def decision_function(self, df: pd.DataFrame) -> np.ndarray:
+        X = df.copy()
+        X = self._preprocessor.test(X, None, False)
         X = X[sorted(X.columns)]
         return self._detector.decision_function(X.values)
 
