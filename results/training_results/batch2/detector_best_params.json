@@ -1,0 +1,72 @@
+{
+    "ABOD": {
+        "contamination": 0.001,
+        "n_neighbors": 100
+    },
+    "HBOS": {
+        "contamination": 0.001,
+        "n_bins": 10,
+        "tol": 0.1
+    },
+    "GMM": {
+        "contamination": 0.001,
+        "covariance_type": "full",
+        "n_components": 4,
+        "random_state": 42
+    },
+    "KNN": {
+        "contamination": 0.001,
+        "method": "largest",
+        "n_neighbors": 20
+    },
+    "LOF": {
+        "contamination": 0.01,
+        "n_neighbors": 50
+    },
+    "IForest": {
+        "contamination": 0.01,
+        "max_features": 0.75,
+        "max_samples": 0.7,
+        "n_estimators": 25,
+        "random_state": 42
+    },
+    "INNE": {
+        "contamination": 0.001,
+        "max_samples": 10,
+        "random_state": 42
+    },
+    "FeatureBagging": {
+        "base_estimator": {
+            "class": "LOF",
+            "params": {
+                "algorithm": "auto",
+                "contamination": 0.1,
+                "leaf_size": 30,
+                "metric": "minkowski",
+                "metric_params": null,
+                "n_jobs": 1,
+                "n_neighbors": 15,
+                "novelty": true,
+                "p": 2
+            }
+        },
+        "contamination": 0.001,
+        "n_estimators": 20
+    },
+    "PCA": {
+        "contamination": 0.01,
+        "n_components": 20,
+        "random_state": 42
+    },
+    "COPOD": {
+        "contamination": 0.05
+    },
+    "ECOD": {
+        "contamination": 0.01
+    },
+    "LODA": {
+        "contamination": 0.01,
+        "n_bins": 50,
+        "n_random_cuts": 100
+    }
+}

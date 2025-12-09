@@ -1,0 +1,13 @@
+{
+    "model": "KNN",
+    "best_params": {
+        "contamination": 0.001,
+        "method": "largest",
+        "n_neighbors": 20
+    },
+    "best_threshold": 9740872580381.814,
+    "roc_auc": 0.7080619840988505,
+    "f1": 0.6521739130434783,
+    "precision": 1.0,
+    "recall": 0.4838709677419355
+}

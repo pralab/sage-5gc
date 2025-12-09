@@ -4,11 +4,13 @@ import logging
 from pathlib import Path
 
 import joblib
+import miceforest as mf
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401
-from sklearn.impute import IterativeImputer
+from sklearn.impute import IterativeImputer, SimpleImputer
+from sklearn.preprocessing import RobustScaler
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
@@ -16,6 +18,7 @@ logger.setLevel(logging.INFO)
 
 
 def _drop_useless_columns(df: pd.DataFrame) -> pd.DataFrame:
+    # Useless columns or logic redundant columns
     col_to_drop = [
         # Wireshark
         "frame.number",
@@ -28,6 +31,7 @@ def _drop_useless_columns(df: pd.DataFrame) -> pd.DataFrame:
         "ip.src_host",
         # UDP-related columns
         "udp.port",
+        "udp.length",
         "udp.srcport",
         "udp.dstport",
         "udp.stream",
@@ -36,6 +40,8 @@ def _drop_useless_columns(df: pd.DataFrame) -> pd.DataFrame:
         "udp.payload",
         # PFCP-related columns
         "pfcp.flow_desc",
+        "pfcp.ie_len",
+        "pfcp.length",
         "pfcp.network_instance",
         "pfcp.time_of_first_packet",
         "pfcp.time_of_last_packet",
@@ -124,30 +130,58 @@ def _convert_to_numeric(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 
         if dtype == "bool":
             cat_cols.append(col)
-            df[col] = df[col].map({True: 1, False: 0, "True": 1, "False": 0})
+            df[col] = (
+                df[col]
+                .map({True: 1, False: 0, "True": 1, "False": 0})
+                .astype("category")
+            )
 
         elif dtype == "hex":
             cat_cols.append(col)
-            df[col] = df[col].apply(
-                lambda x: int(str(x), 16)
-                if pd.notnull(x) and str(x).startswith("0x")
-                else np.nan
+            df[col] = (
+                df[col]
+                .apply(
+                    lambda x: int(str(x), 16)
+                    if pd.notnull(x) and str(x).startswith("0x")
+                    else np.nan
+                )
+                .astype("category")
             )
 
         elif dtype == "ip_address":
             cat_cols.append(col)
-            df[col] = df[col].apply(
-                lambda x: int(ipaddress.ip_address(x)) if pd.notnull(x) else np.nan
+            df[col] = (
+                df[col]
+                .apply(
+                    lambda x: int(ipaddress.ip_address(x)) if pd.notnull(x) else np.nan
+                )
+                .astype("category")
             )
 
         elif dtype == "datetime":
             cat_cols.append(col)
             df[col] = pd.to_datetime(df[col], errors="coerce").astype("int64") // 10**9
+            df[col] = df[col].astype("category")
 
         elif dtype in ["empty", "undefined"]:
             logger.debug(f"Column '{col}' missing type detected as '{dtype}'.")
 
     return df, cat_cols
+
+
+def _log_transform(df: pd.DataFrame) -> pd.DataFrame:
+    log_cols = [
+        "pfcp.volume_measurement.dlvol",
+        "pfcp.volume_measurement.dlnop",
+        "pfcp.volume_measurement.tonop",
+        "pfcp.volume_measurement.tovol",
+        "pfcp.response_time",
+    ]
+
+    for col in log_cols:
+        df[col] = np.log1p(df[col].clip(lower=0))
+
+    return df
 
 
 def preprocessing_train(
@@ -190,34 +224,60 @@ def preprocessing_train(
     # --------------------
     # [Step 3] Imputation
     # --------------------
-    imputer = IterativeImputer(
-        estimator=RandomForestRegressor(n_jobs=-1, max_depth=10, n_estimators=50),
-        initial_strategy="most_frequent",
+    simple_imputer = SimpleImputer(strategy="most_frequent")
+    iter_imputer = IterativeImputer(
+        estimator=RandomForestRegressor(n_jobs=-1, max_depth=20, n_estimators=50),
+        initial_strategy="median",
         max_iter=10,
         random_state=random_state,
+        skip_complete=True,
     )
 
-    df_imputed_raw = imputer.fit_transform(df_processed)
+    df_cat = df_processed[cat_cols]
+    df_cat = simple_imputer.fit_transform(df_cat)
+    df_cat = pd.DataFrame(df_cat, columns=cat_cols, index=df_processed.index)
+
+    df_processed.update(df_cat)
+
+    df_imputed_raw = iter_imputer.fit_transform(df_processed)
     df_imputed = pd.DataFrame(
         df_imputed_raw, columns=df_processed.columns, index=df_processed.index
     )
+    df_imputed["pfcp.duration_measurement"] = df_imputed[
+        "pfcp.duration_measurement"
+    ].round()
 
-    # Adding int type to categorical columns
-    cat_cols.extend(["pfcp.duration_measurement"])
+    # ----------------------------
+    # [Step 4] Log Transformation
+    # ----------------------------
+    # df_imputed = _log_transform(df_imputed)
 
-    for col in cat_cols:
-        df_imputed[col] = df_imputed[col].round()
+    # -------------------------
+    # [Step 5] Standardization
+    # -------------------------
+    scaler = RobustScaler()
+    df_imputed = scaler.fit_transform(df_imputed)
+    df_final = pd.DataFrame(
+        df_imputed, columns=df_processed.columns, index=df_processed.index
+    )
 
     # -----------------------------
-    # [Step 4] Save processed data
+    # [Step 6] Save processed data
     # -----------------------------
-    joblib.dump(imputer, Path(__file__).parent / "models_preprocessing/imputer.pkl")
+    joblib.dump(scaler, Path(__file__).parent / "models_preprocessing/scaler.pkl")
+    joblib.dump(
+        simple_imputer,
+        Path(__file__).parent / "models_preprocessing/simple_imputer.pkl",
+    )
+    joblib.dump(
+        iter_imputer, Path(__file__).parent / "models_preprocessing/iter_imputer.pkl"
+    )
 
     if output_path is not None:
         Path(output_path.parent).mkdir(exist_ok=True)
-        df_imputed.to_csv(output_path, sep=";")
+        df_final.to_csv(output_path, sep=";", index=False)
 
-    return df_imputed
+    return df_final
 
 
 def preprocessing_test(
@@ -252,9 +312,9 @@ def preprocessing_test(
         raise SystemError("You have to preprocess training data before test data!")
 
     with constant_cols_path.open("r") as f:
-        constant_ip_col_to_drop = json.load(f)
+        constant_col_to_drop = json.load(f)
 
-    df_processed = df_processed.drop(columns=constant_ip_col_to_drop, errors="ignore")
+    df_processed = df_processed.drop(columns=constant_col_to_drop, errors="ignore")
 
     # ----------------------------------------
     # [Step 2] Convert non-numeric to numeric
@@ -264,27 +324,50 @@ def preprocessing_test(
     # --------------------
     # [Step 3] Imputation
     # --------------------
-    imputer_path = Path(__file__).parent / "models_preprocessing/imputer.pkl"
-
-    if not imputer_path.exists():
+    simple_imputer_path = (
+        Path(__file__).parent / "models_preprocessing/simple_imputer.pkl"
+    )
+    iter_imputer_path = Path(__file__).parent / "models_preprocessing/iter_imputer.pkl"
+    if not simple_imputer_path.exists():
         raise SystemError("You have to preprocess training data before test data!")
 
-    imputer: IterativeImputer = joblib.load(imputer_path)
-    df_imputed_raw = imputer.transform(df_processed)
+    simple_imputer: SimpleImputer = joblib.load(simple_imputer_path)
+    iter_imputer: IterativeImputer = joblib.load(iter_imputer_path)
+
+    df_cat = df_processed[cat_cols]
+    df_cat = simple_imputer.transform(df_cat)
+    df_cat = pd.DataFrame(df_cat, columns=cat_cols, index=df_processed.index)
+    df_processed.update(df_cat)
+
+    df_imputed_raw = iter_imputer.transform(df_processed)
     df_imputed = pd.DataFrame(
         df_imputed_raw, columns=df_processed.columns, index=df_processed.index
     )
+    df_imputed["pfcp.duration_measurement"] = df_imputed[
+        "pfcp.duration_measurement"
+    ].round()
 
-    # Adding int type to categorical columns
-    cat_cols.extend(["pfcp.duration_measurement"])
+    # ----------------------------
+    # [Step 4] Log Transformation
+    # ----------------------------
+    # df_imputed = _log_transform(df_imputed)
 
-    for col in cat_cols:
-        df_imputed[col] = df_imputed[col].round()
+    # -------------------------
+    # [Step 5] Standardization
+    # -------------------------
+    scaler_path = Path(__file__).parent / "models_preprocessing/scaler.pkl"
+    if not scaler_path.exists():
+        raise SystemError("You have to preprocess training data before test data!")
+    scaler: RobustScaler = joblib.load(scaler_path)
+    df_imputed = scaler.transform(df_imputed)
+    df_final = pd.DataFrame(
+        df_imputed, columns=df_processed.columns, index=df_processed.index
+    )
 
     # -----------------------------
-    # [Step 3] Save processed data
+    # [Step 6] Save processed data
     # -----------------------------
     if output_path is not None:
-        df_processed.to_csv(output_path, sep=";")
+        df_final.to_csv(output_path, sep=";", index=False)
 
-    return df_processed
+    return df_final

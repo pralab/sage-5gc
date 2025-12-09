@@ -3,58 +3,55 @@ from pathlib import Path
 import pandas as pd
 
 from .utils import (
-    preprocessing_pipeline_test as _test,
+    preprocessing_test as _test,
 )
 from .utils import (
-    preprocessing_pipeline_train as _train,
+    preprocessing_train as _train,
 )
 
 
 class Preprocessor:
-    """Wrapper class that exposes utility preprocessing functions as methods."""
+    """Class that exposes utility preprocessing functions as methods."""
 
     def train(
         self,
         df_train: pd.DataFrame,
-        output_dir: str | None,
+        output_path: Path | str | None = None,
         skip_preprocess: bool = False,
     ) -> pd.DataFrame:
         """
-        Call the train preprocessing pipeline. Run only if not already fitted.
+        Call the train preprocessing pipeline.
 
         Parameters
         ----------
         df_train : pd.DataFrame
             Training clean DataFrame.
-        output_dir : str
-            Output directory for results.
-        skip_preprocess : bool, optional
-            If True, skip preprocessing and load existing final dataset from output_dir,
-            by default False.
+        output_path : Path | str | None
+            Path to save the processed DataFrame.
+        skip_preprocess : bool
+            Whether to skip preprocessing if processed data already exists.
 
         Returns
         -------
         pd.DataFrame
             The preprocessed DataFrame.
         """
-        if output_dir is None:
-            df = _train(df_train, output_dir)
+        if skip_preprocess and output_path is not None:
+            if not Path(output_path).exists():
+                raise FileNotFoundError(f"Dataset not found in {output_path}.")
 
-        elif skip_preprocess:
-            if not (Path(output_dir) / "train_dataset_processed.csv").exists():
-                raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
+            with Path(output_path).open("r") as f:
+                df = pd.read_csv(f, sep=";")
 
-            with (Path(output_dir) / "train_dataset_processed.csv").open("r") as f:
-                df = pd.read_csv(f, low_memory=False, sep=";")
         else:
-            df = _train(df_train, output_dir)
+            df = _train(df_train, output_path)
 
         return df
 
     def test(
         self,
         df_test: pd.DataFrame,
-        output_dir: str | None,
+        output_path: Path | str | None = None,
         skip_preprocess: bool = False,
     ) -> pd.DataFrame:
         """
@@ -64,24 +61,23 @@ class Preprocessor:
         ----------
         df_test : pd.DataFrame
             Test clean DataFrame.
-        output_dir : str
-            Output directory for results.
+        output_path : Path | str | None
+            Path to save the processed DataFrame.
+        skip_preprocess : bool
+            Whether to skip preprocessing if processed data already exists.
 
         Returns
         -------
         pd.DataFrame
             The preprocessed DataFrame.
         """
-        if output_dir is None:
-            df = _test(df_test, output_dir)
+        if skip_preprocess and output_path is not None:
+            if not Path(output_path).exists():
+                raise FileNotFoundError(f"Dataset not found in {output_path}.")
 
-        elif skip_preprocess:
-            if not (Path(output_dir) / "test_dataset_processed.csv").exists():
-                raise FileNotFoundError(f"Missing final dataset in {output_dir}.")
-
-            with (Path(output_dir) / "test_dataset_processed.csv").open("r") as f:
-                df = pd.read_csv(f, low_memory=False, sep=";")
+            with Path(output_path).open("r") as f:
+                df = pd.read_csv(f, sep=";")
         else:
-            df = _test(df_test, output_dir)
+            df = _test(df_test, output_path)
 
         return df

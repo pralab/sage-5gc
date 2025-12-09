@@ -1,0 +1,12 @@
+{
+    "model": "ABOD",
+    "best_params": {
+        "contamination": 0.001,
+        "n_neighbors": 100
+    },
+    "best_threshold": -0.3448021436979687,
+    "roc_auc": 0.7515790129756807,
+    "f1": 0.32162442567066846,
+    "precision": 0.19162839985870717,
+    "recall": 1.0
+}
