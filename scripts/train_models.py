@@ -30,11 +30,9 @@ from pyod.models.lscp import LSCP  # noqa: F401
 from pyod.models.mcd import MCD  # noqa: F401
 from pyod.models.ocsvm import OCSVM  # noqa: F401
 from pyod.models.pca import PCA  # noqa: F401
-from pyod.utils.example import visualize
 import seaborn as sns
 from sklearn.cluster import KMeans  # noqa: F401
 from sklearn.metrics import (
-    average_precision_score,
     f1_score,
     precision_score,
     recall_score,
@@ -345,10 +343,10 @@ if __name__ == "__main__":
 
         y_scores = final_detector.decision_function(X_val)
         best_thresh, _ = _tune_threshold(y_scores, y_val)
+        final_detector.set_threshold(best_thresh)
 
         # Final Evaluation on Test Set
         y_scores = final_detector.decision_function(X_ts, PTEST_PATH, True)
-        #y_pred = final_detector.predict(X_ts, PTEST_PATH, True)
         y_pred = (y_scores > best_thresh).astype(int)
 
         prec = precision_score(y_ts, y_pred)

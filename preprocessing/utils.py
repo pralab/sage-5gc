@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 
 import joblib
-import miceforest as mf
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
@@ -169,21 +168,6 @@ def _convert_to_numeric(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     return df, cat_cols
 
 
-def _log_transform(df: pd.DataFrame) -> pd.DataFrame:
-    log_cols = [
-        "pfcp.volume_measurement.dlvol",
-        "pfcp.volume_measurement.dlnop",
-        "pfcp.volume_measurement.tonop",
-        "pfcp.volume_measurement.tovol",
-        "pfcp.response_time",
-    ]
-
-    for col in log_cols:
-        df[col] = np.log1p(df[col].clip(lower=0))
-
-    return df
-
-
 def preprocessing_train(
     df_train: pd.DataFrame,
     output_path: Path | str | None = None,
@@ -247,14 +231,10 @@ def preprocessing_train(
         "pfcp.duration_measurement"
     ].round()
 
-    # ----------------------------
-    # [Step 4] Log Transformation
-    # ----------------------------
-    # df_imputed = _log_transform(df_imputed)
 
-    # -------------------------
-    # [Step 5] Standardization
-    # -------------------------
+    # ----------------
+    # [Step 4] Scaler
+    # ----------------
     scaler = RobustScaler()
     df_imputed = scaler.fit_transform(df_imputed)
     df_final = pd.DataFrame(
@@ -262,7 +242,7 @@ def preprocessing_train(
     )
 
     # -----------------------------
-    # [Step 6] Save processed data
+    # [Step 5] Save processed data
     # -----------------------------
     joblib.dump(scaler, Path(__file__).parent / "models_preprocessing/scaler.pkl")
     joblib.dump(
@@ -347,14 +327,9 @@ def preprocessing_test(
         "pfcp.duration_measurement"
     ].round()
 
-    # ----------------------------
-    # [Step 4] Log Transformation
-    # ----------------------------
-    # df_imputed = _log_transform(df_imputed)
-
-    # -------------------------
-    # [Step 5] Standardization
-    # -------------------------
+    # ----------------
+    # [Step 4] Scaler
+    # ----------------
     scaler_path = Path(__file__).parent / "models_preprocessing/scaler.pkl"
     if not scaler_path.exists():
         raise SystemError("You have to preprocess training data before test data!")
@@ -365,7 +340,7 @@ def preprocessing_test(
     )
 
     # -----------------------------
-    # [Step 6] Save processed data
+    # [Step 5] Save processed data
     # -----------------------------
     if output_path is not None:
         df_final.to_csv(output_path, sep=";", index=False)
