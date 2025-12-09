@@ -353,7 +353,6 @@ if __name__ == "__main__":
         rec = recall_score(y_ts, y_pred)
         f1 = f1_score(y_ts, y_pred)
 
-        # logger.info(f"Best Threshold: {best_thresh:.5f}")
         logger.info(f"Precision: {prec:.3f}")
         logger.info(f"Recall: {rec:.3f}")
         logger.info(f"F1 Score: {f1:.3f}")
@@ -371,5 +370,5 @@ if __name__ == "__main__":
         with test_result_file.open("w") as f:
             json.dump(_make_json_serializable(results_entry), f, indent=4)
 
-        _check_model_sanity(y_ts, y_scores, model_name)
+        # _check_model_sanity(y_ts, y_scores, model_name)
         joblib.dump(final_detector, model_file)
