@@ -84,15 +84,30 @@ def evaluate_models_by_category(
         y_pred = detector.predict(X_ts, skip_preprocess=True)
     else:
         # Ensemble / meta-detector case
-        detector1 = joblib.load(MODEL_DIR / "HBOS.pkl")
-        detector2 = joblib.load(MODEL_DIR / "ABOD.pkl")
+        detector1: Detector= joblib.load(MODEL_DIR / "IForest.pkl")
+        detector2: Detector = joblib.load(MODEL_DIR / "KNN.pkl")
+        detector3: Detector = joblib.load(MODEL_DIR / "LOF.pkl")
+        detector4: Detector = joblib.load(MODEL_DIR / "INNE.pkl")
+        detector5: Detector = joblib.load(MODEL_DIR / "PCA.pkl")
+
+        detector1.set_threshold(None)
+        detector2.set_threshold(None)
+        detector3.set_threshold(None)
+        detector4.set_threshold(None)
+        detector5.set_threshold(None)
 
         scores1_ts = detector1.decision_function(X_ts)
         scores2_ts = detector2.decision_function(X_ts)
+        scores3_ts = detector3.decision_function(X_ts)
+        scores4_ts = detector4.decision_function(X_ts)
+        scores5_ts = detector5.decision_function(X_ts)
 
         s1_ts_n = standardizer(scores1_ts.reshape(-1, 1)).ravel()
         s2_ts_n = standardizer(scores2_ts.reshape(-1, 1)).ravel()
-        X_meta_ts = np.vstack([s1_ts_n, s2_ts_n]).T
+        s3_ts_n = standardizer(scores3_ts.reshape(-1, 1)).ravel()
+        s4_ts_n = standardizer(scores4_ts.reshape(-1, 1)).ravel()
+        s5_ts_n = standardizer(scores5_ts.reshape(-1, 1)).ravel()
+        X_meta_ts = np.vstack([s1_ts_n, s2_ts_n, s3_ts_n, s4_ts_n, s5_ts_n]).T
 
         y_scores = detector.decision_function(X_meta_ts)
         y_pred = detector.predict(X_meta_ts)

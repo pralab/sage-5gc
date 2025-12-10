@@ -4,8 +4,6 @@ import sys
 import joblib
 import numpy as np
 import pandas as pd
-from pyod.models.abod import ABOD
-from pyod.models.hbos import HBOS
 from pyod.utils.utility import standardizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
@@ -52,8 +50,17 @@ X_val = processor.test(X_val)
 # -----------------------------
 # [Step 2] Load base detectors
 # -----------------------------
-detector1: Detector= joblib.load(MODEL_DIR / "HBOS.pkl")
-detector2: Detector = joblib.load(MODEL_DIR / "ABOD.pkl")
+detector1: Detector= joblib.load(MODEL_DIR / "IForest.pkl")
+detector2: Detector = joblib.load(MODEL_DIR / "KNN.pkl")
+detector3: Detector = joblib.load(MODEL_DIR / "LOF.pkl")
+detector4: Detector = joblib.load(MODEL_DIR / "INNE.pkl")
+detector5: Detector = joblib.load(MODEL_DIR / "PCA.pkl")
+
+detector1.set_threshold(None)
+detector2.set_threshold(None)
+detector3.set_threshold(None)
+detector4.set_threshold(None)
+detector5.set_threshold(None)
 
 # --------------------------------
 # [Step 3] Generate meta-features
@@ -61,12 +68,18 @@ detector2: Detector = joblib.load(MODEL_DIR / "ABOD.pkl")
 print("Generating meta-features...")
 scores1_tr = detector1.decision_function(X_val)
 scores2_tr = detector2.decision_function(X_val)
+scores3_tr = detector3.decision_function(X_val)
+scores4_tr = detector4.decision_function(X_val)
+scores5_tr = detector5.decision_function(X_val)
 
 s1_tr_n = standardizer(scores1_tr.reshape(-1, 1)).ravel()
 s2_tr_n = standardizer(scores2_tr.reshape(-1, 1)).ravel()
+s3_tr_n = standardizer(scores3_tr.reshape(-1, 1)).ravel()
+s4_tr_n = standardizer(scores4_tr.reshape(-1, 1)).ravel()
+s5_tr_n = standardizer(scores5_tr.reshape(-1, 1)).ravel()
 
 # shape (n_samples, 2)
-X_meta_tr = np.vstack([s1_tr_n, s2_tr_n]).T
+X_meta_tr = np.vstack([s1_tr_n, s2_tr_n, s3_tr_n, s4_tr_n, s5_tr_n]).T
 
 # -------------------------------
 # [Step 4] Train meta-classifier
@@ -80,11 +93,17 @@ meta_clf.fit(X_meta_tr, y_val)
 # -------------------------------------
 scores1_ts = detector1.decision_function(X_ts)
 scores2_ts = detector2.decision_function(X_ts)
+scores3_ts = detector3.decision_function(X_ts)
+scores4_ts = detector4.decision_function(X_ts)
+scores5_ts = detector5.decision_function(X_ts)
 
 s1_ts_n = standardizer(scores1_ts.reshape(-1, 1)).ravel()
 s2_ts_n = standardizer(scores2_ts.reshape(-1, 1)).ravel()
+s3_ts_n = standardizer(scores3_ts.reshape(-1, 1)).ravel()
+s4_ts_n = standardizer(scores4_ts.reshape(-1, 1)).ravel()
+s5_ts_n = standardizer(scores5_ts.reshape(-1, 1)).ravel()
 
-X_meta_ts = np.vstack([s1_ts_n, s2_ts_n]).T
+X_meta_ts = np.vstack([s1_ts_n, s2_ts_n, s3_ts_n, s4_ts_n, s5_ts_n]).T
 y_pred = meta_clf.predict(X_meta_ts)
 y_scores = meta_clf.predict_proba(X_meta_ts)[:, 1]
 
