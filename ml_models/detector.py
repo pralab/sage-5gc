@@ -33,7 +33,7 @@ class Detector:
     def fit(
         self,
         df: pd.DataFrame,
-        output_path: Path | str | None = None,
+        data_path: Path | str | None = None,
         skip_preprocess: bool = False,
     ) -> "Detector":
         """
@@ -43,8 +43,10 @@ class Detector:
         ----------
         df : pd.DataFrame
             The training data.
-        output_path : Path | str | None
-            Path to save the preprocessed data.
+        data_path : Path | str | None
+            Path to load/save the preprocessed data. If specified, the preprocessed data
+            will be saved to this path after preprocessing. If a file exists at this path,
+            it will be loaded instead of preprocessing the data again.
         skip_preprocess : bool, optional
             Whether to skip preprocessing, by default False.
 
@@ -54,8 +56,12 @@ class Detector:
             The trained Detector instance.
         """
         X = df.copy()
-        X = self._preprocessor.train(X, output_path, skip_preprocess)
+        if skip_preprocess:
+            X = self._preprocessor.train(X, data_path)
         X = X[sorted(X.columns)]
+
+        if X.isnull().any().any():
+            raise ValueError("Input data contains NaN values after preprocessing.")
 
         self._detector.fit(X.values)
         self._trained = True
@@ -65,7 +71,7 @@ class Detector:
     def predict(
         self,
         df: pd.DataFrame,
-        output_path: Path | str | None = None,
+        data_path: Path | str | None = None,
         skip_preprocess: bool = False,
     ) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
         """
@@ -75,8 +81,10 @@ class Detector:
         ----------
         df : pd.DataFrame
             The data to predict on.
-        output_path : str | None
-            Path to save the preprocessed data.
+        data_path : Path | str | None
+            Path to load/save the preprocessed data. If specified, the preprocessed data
+            will be saved to this path after preprocessing. If a file exists at this path,
+            it will be loaded instead of preprocessing the data again.
         skip_preprocess : bool, optional
             Whether to skip preprocessing, by default False.
 
@@ -87,10 +95,11 @@ class Detector:
             or just the predicted labels depending on the detector.
         """
         if not self._trained:
-            raise ValueError("Model not trained, call fit() before predict().")
+            raise ValueError("Model not trained, call fit().")
 
         X = df.copy()
-        X = self._preprocessor.test(X, output_path, skip_preprocess)
+        if skip_preprocess:
+            X = self._preprocessor.test(X, data_path, skip_preprocess)
         X = X[sorted(X.columns)]
 
         if X.isnull().any().any():
@@ -106,7 +115,7 @@ class Detector:
     def decision_function(
         self,
         df: pd.DataFrame,
-        output_path: Path | str | None = None,
+        data_path: Path | str | None = None,
         skip_preprocess: bool = False,
     ) -> np.ndarray:
         """
@@ -116,8 +125,10 @@ class Detector:
         ----------
         df : pd.DataFrame
             The data to compute scores for.
-        output_path : Path | str | None
-            Path to save the preprocessed data.
+        data_path : Path | str | None
+            Path to load/save the preprocessed data. If specified, the preprocessed data
+            will be saved to this path after preprocessing. If a file exists at this path,
+            it will be loaded instead of preprocessing the data again.
         skip_preprocess : bool, optional
             Whether to skip preprocessing, by default False.
 
@@ -126,8 +137,12 @@ class Detector:
         np.ndarray
             The decision function scores.
         """
+        if not self._trained:
+            raise ValueError("Model not trained, call fit().")
+
         X = df.copy()
-        X = self._preprocessor.test(X, output_path, skip_preprocess)
+        if skip_preprocess:
+            X = self._preprocessor.test(X, data_path, skip_preprocess)
         X = X[sorted(X.columns)]
 
         if X.isnull().any().any():

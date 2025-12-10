@@ -57,7 +57,6 @@ MAPPING_FEAT = {
     "ip.len": ng.p.Scalar(lower=44, upper=653).set_integer_casting(),
     "ip.checksum": ng.p.Scalar(lower=54, upper=65525).set_integer_casting(),
     # UDP layer
-    "udp.length": ng.p.Scalar(lower=24, upper=633).set_integer_casting(),
     "udp.checksum": ng.p.Scalar(lower=2389, upper=41240).set_integer_casting(),
     # PFCP layer
     "pfcp.apply_action.buff": ng.p.Choice([True, False]),
@@ -71,7 +70,6 @@ MAPPING_FEAT = {
     "pfcp.duration_measurement": ng.p.Scalar(lower=1747212643, upper=1753894838),
     "pfcp.ie_len": ng.p.Scalar(lower=1, upper=50).set_integer_casting(),
     "pfcp.ie_type": ng.p.Scalar(lower=10, upper=96).set_integer_casting(),
-    "pfcp.length": ng.p.Scalar(lower=12, upper=621).set_integer_casting(),
     "pfcp.msg_type": ng.p.Scalar(lower=1, upper=57).set_integer_casting(),
     "pfcp.pdr_id": ng.p.Scalar(lower=1, upper=2).set_integer_casting(),
     "pfcp.recovery_time_stamp": ng.p.Scalar(

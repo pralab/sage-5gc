@@ -56,7 +56,6 @@ TRAIN_PATH = Path(__file__).parent.parent / "data/datasets/train_dataset.csv"
 TEST_PATH = Path(__file__).parent.parent / "data/datasets/test_dataset.csv"
 PTRAIN_PATH = Path(__file__).parent.parent / "data/datasets/train_processed.csv"
 PTEST_PATH = Path(__file__).parent.parent / "data/datasets/test_processed.csv"
-PVAL_PATH = Path(__file__).parent.parent / "data/datasets/val_processed.csv"
 
 LABEL_COL = "ip.opt.time_stamp"
 VAL_SIZE = 0.50
@@ -231,8 +230,8 @@ def _evaluate_single_config(
 ) -> tuple[float, dict]:
     try:
         detector = Detector(detector_class=model_class, **params)
-        detector.fit(X_tr, PTRAIN_PATH, True)
-        scores = detector.predict(X_val)
+        detector.fit(X_tr, skip_preprocess=True)
+        scores = detector.predict(X_val, skip_preprocess=True)
         auc = roc_auc_score(y_val, scores)
         return (auc, params)
     except Exception as e:
@@ -272,6 +271,7 @@ if __name__ == "__main__":
     processor = Preprocessor()
     X_tr = processor.train(X_tr, PTRAIN_PATH)
     X_ts = processor.test(X_ts, PTEST_PATH)
+    X_val = processor.test(X_val)
 
     # ---------------------------------------------
     # [Step 2.2] Load best params cache if present
@@ -337,16 +337,16 @@ if __name__ == "__main__":
         logger.info(f"Training final {model_name} model...")
 
         final_detector = Detector(detector_class=eval(model_name), **best_params)
-        final_detector.fit(X_tr, PTRAIN_PATH, True)
+        final_detector.fit(X_tr, skip_preprocess=True)
 
         logger.info("Tuning threshold on validation set...")
 
-        y_scores = final_detector.decision_function(X_val)
+        y_scores = final_detector.decision_function(X_val, skip_preprocess=True)
         best_thresh, _ = _tune_threshold(y_scores, y_val)
         final_detector.set_threshold(best_thresh)
 
         # Final Evaluation on Test Set
-        y_scores = final_detector.decision_function(X_ts, PTEST_PATH, True)
+        y_scores = final_detector.decision_function(X_ts, skip_preprocess=True)
         y_pred = (y_scores > best_thresh).astype(int)
 
         prec = precision_score(y_ts, y_pred)

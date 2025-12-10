@@ -1,18 +1,26 @@
+import json
 from pathlib import Path
 import sys
-import pandas as pd
-import numpy as np
+
 import joblib
-import json
-from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score, accuracy_score
+import numpy as np
+import pandas as pd
+from pyod.utils.utility import standardizer
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import train_test_split
 
 # Import Preprocessor and Detector
 sys.path.append(str(Path(__file__).parent.parent))
-from preprocessing.preprocessor import Preprocessor
-from ml_models import Detector
-
 import logging
+
+from ml_models import Detector
+from preprocessing import Preprocessor
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -21,6 +29,7 @@ logger.setLevel(logging.INFO)
 # Same constants as in train_models.py
 VAL_SIZE = 0.50
 RANDOM_STATE = 42
+MODEL_DIR = Path(__file__).parent.parent / "data/trained_models"
 
 
 def _convert_labels_to_binary(labels: pd.Series) -> np.ndarray:
@@ -31,7 +40,6 @@ def _convert_labels_to_binary(labels: pd.Series) -> np.ndarray:
         return (~pd.isna(labels)).astype(int).values
     else:
         return np.zeros(len(labels), dtype=int)
-
 
 # ---------------------------------------------
 # Attack map
@@ -46,11 +54,12 @@ ATTACK_TYPE_MAP = {
     6: "restoration_teid",
 }
 
-
 # ---------------------------------------------
 # EVALUATION FUNCTION
 # ---------------------------------------------
-def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, labels_original: pd.Series) -> dict:
+def evaluate_models_by_category(
+    detector: Detector, X_ts: pd.DataFrame, y_ts: pd.Series
+) -> dict:
     """
     Evaluate detector performance for each attack category separately.
 
@@ -62,25 +71,19 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
 
     logger.debug("Computing anomaly scores...")
     # Get the threshold from the detector
-    if detector._threshold is not None:
-        threshold = detector._threshold
-    elif hasattr(detector._detector, 'threshold_'):
-        threshold = detector._detector.threshold_
-    else:
-        logger.warning("No threshold found in detector!  Using 0 as default.")
-        threshold = 0
-
-    logger.debug(f"Using threshold: {threshold}")
-    # Compute anomaly scores on the test set
-    y_scores = detector.decision_function(df_test.drop(columns=["ip.opt.time_stamp"], errors="ignore"))
-    # Binary labels: 1 = attack, 0 = normal
-    y_ts = _convert_labels_to_binary(labels_original)
+    # if detector._threshold is not None:
+    #     threshold = float(detector._threshold)
+    # elif hasattr(detector._detector, "threshold_"):
+    #     threshold = float(detector._detector.threshold_)
+    # else:
+    #     logger.warning("No threshold found in detector!  Using default one.")
+    #     threshold = None
 
     results = {
-        "threshold": float(threshold),
+        # "threshold": threshold,
         "overall_performance": {},
         "normal_condition": {},
-        "attacks_by_category": {}
+        "attacks_by_category": {},
     }
 
     # --------------------------------------------
@@ -88,7 +91,23 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
     # --------------------------------------------
     logger.info("OVERALL PERFORMANCE: Normal vs All Attacks")
 
-    y_pred_overall = (y_scores > threshold).astype(int)
+    if isinstance(detector, Detector):
+        y_scores = detector.decision_function(X_ts, skip_preprocess=True)
+        y_pred = detector.predict(X_ts, skip_preprocess=True)
+    else:
+        detector1 = joblib.load(MODEL_DIR / "HBOS.pkl")
+        detector2 = joblib.load(MODEL_DIR / "ABOD.pkl")
+        scores1_ts = detector1.decision_function(X_ts)
+        scores2_ts = detector2.decision_function(X_ts)
+
+        s1_ts_n = standardizer(scores1_ts.reshape(-1, 1)).ravel()
+        s2_ts_n = standardizer(scores2_ts.reshape(-1, 1)).ravel()
+        X_meta_ts = np.vstack([s1_ts_n, s2_ts_n]).T
+
+        y_scores = detector.decision_function(X_meta_ts)
+        y_pred = detector.predict(X_meta_ts)
+
+    y_ts_bin = _convert_labels_to_binary(y_ts)
 
     try:
         auc_overall = roc_auc_score(y_ts, y_scores)
@@ -96,16 +115,16 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
         logger.warning(f"Could not compute overall AUC: {e}")
         auc_overall = np.nan
 
-    f1_overall = f1_score(y_ts, y_pred_overall, zero_division=0)
-    precision_overall = precision_score(y_ts, y_pred_overall, zero_division=0)
-    recall_overall = recall_score(y_ts, y_pred_overall, zero_division=0)
-    accuracy_overall = accuracy_score(y_ts, y_pred_overall)
+    f1_overall = f1_score(y_ts_bin, y_pred, zero_division=0)
+    precision_overall = precision_score(y_ts_bin, y_pred, zero_division=0)
+    recall_overall = recall_score(y_ts_bin, y_pred, zero_division=0)
+    accuracy_overall = accuracy_score(y_ts_bin, y_pred)
 
     # Confusion matrix elements
-    tp_overall = int(np.sum((y_ts == 1) & (y_pred_overall == 1)))
-    fn_overall = int(np.sum((y_ts == 1) & (y_pred_overall == 0)))
-    fp_overall = int(np.sum((y_ts == 0) & (y_pred_overall == 1)))
-    tn_overall = int(np.sum((y_ts == 0) & (y_pred_overall == 0)))
+    tp_overall = int(np.sum((y_ts == 1) & (y_pred == 1)))
+    fn_overall = int(np.sum((y_ts == 1) & (y_pred == 0)))
+    fp_overall = int(np.sum((y_ts == 0) & (y_pred == 1)))
+    tn_overall = int(np.sum((y_ts == 0) & (y_pred == 0)))
 
     n_attacks_total = int(y_ts.sum())
     n_normal_total = int(len(y_ts) - n_attacks_total)
@@ -113,8 +132,14 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
     detection_rate_overall = tp_overall / n_attacks_total if n_attacks_total > 0 else 0
     fp_rate_overall = fp_overall / n_normal_total if n_normal_total > 0 else 0
 
-    logger.info(f"Total samples: {len(y_ts)} (Normal: {n_normal_total}, Attacks: {n_attacks_total})")
-    logger.info(f"AUC          : {auc_overall:.4f}" if not np.isnan(auc_overall) else "AUC          : N/A")
+    logger.info(
+        f"Total samples: {len(y_ts)} (Normal: {n_normal_total}, Attacks: {n_attacks_total})"
+    )
+    logger.info(
+        f"AUC          : {auc_overall:.4f}"
+        if not np.isnan(auc_overall)
+        else "AUC          : N/A"
+    )
     logger.info(f"F1 Score     : {f1_overall:.4f}")
     logger.info(f"Precision    : {precision_overall:.4f}")
     logger.info(f"Recall       :  {recall_overall:.4f}")
@@ -143,14 +168,14 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
     # ------------------------------------------------------
     # NORMAL CONDITION METRICS (only normal traffic)
     # ------------------------------------------------------
-    mask_normal = labels_original.isna()
+    mask_normal = y_ts.isna()
     n_normal = mask_normal.sum()
 
     if n_normal > 0:
         logger.info(f"NORMAL CONDITION ({n_normal} samples)")
 
+        y_pred_normal = y_ts_bin[mask_normal]
         y_scores_normal = y_scores[mask_normal]
-        y_pred_normal = (y_scores_normal > threshold).astype(int)
 
         correctly_classified_normal = int(np.sum(y_pred_normal == 0))
         misclassified_as_attack = int(np.sum(y_pred_normal == 1))
@@ -161,9 +186,15 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
         min_score_normal = float(np.min(y_scores_normal))
         max_score_normal = float(np.max(y_scores_normal))
 
-        logger.info(f"Correctly classified as normal: {correctly_classified_normal}/{n_normal} ({normal_accuracy:.4f})")
-        logger.info(f"Misclassified as attack (FP): {misclassified_as_attack}/{n_normal}")
-        logger.info(f"Score range: [{min_score_normal:.4f}, {max_score_normal:.4f}], mean={mean_score_normal:.4f}")
+        logger.info(
+            f"Correctly classified as normal: {correctly_classified_normal}/{n_normal} ({normal_accuracy:.4f})"
+        )
+        logger.info(
+            f"Misclassified as attack (FP): {misclassified_as_attack}/{n_normal}"
+        )
+        logger.info(
+            f"Score range: [{min_score_normal:.4f}, {max_score_normal:.4f}], mean={mean_score_normal:.4f}"
+        )
 
         results["normal_condition"] = {
             "n_samples": int(n_normal),
@@ -181,15 +212,8 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
     # EVALUATE EACH ATTACK TYPE:  detection metrics
     # ------------------------------------------------------
 
-    # Get normal scores for overlap analysis
-    mask_normal_global = labels_original.isna()
-    if mask_normal_global.sum() > 0:
-        y_scores_normal_global = y_scores[mask_normal_global]
-    else:
-        y_scores_normal_global = np.array([])
-
     for attack_code, attack_name in ATTACK_TYPE_MAP.items():
-        mask_attack = labels_original == attack_code
+        mask_attack = y_ts == attack_code
         n_attack = mask_attack.sum()
 
         if n_attack == 0:
@@ -200,7 +224,7 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
 
         # Get scores and predictions for this attack
         y_scores_attack = y_scores[mask_attack]
-        y_pred_attack = (y_scores_attack > threshold).astype(int)
+        y_pred_attack = y_ts_bin[mask_attack]
 
         # Detection metrics
         correctly_detected = int(np.sum(y_pred_attack == 1))
@@ -213,30 +237,16 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
         min_score = float(np.min(y_scores_attack))
         max_score = float(np.max(y_scores_attack))
 
-        # How many normal samples have scores in this attack's range
-        if len(y_scores_normal_global) > 0:
-            normal_in_attack_range = int(np.sum(
-                (y_scores_normal_global >= min_score) &
-                (y_scores_normal_global <= max_score)
-            ))
-
-            normal_misclassified_in_range = int(np.sum(
-                (y_scores_normal_global > threshold) &
-                (y_scores_normal_global >= min_score) &
-                (y_scores_normal_global <= max_score)
-            ))
-        else:
-            normal_in_attack_range = 0
-            normal_misclassified_in_range = 0
-
-        logger.info(f"Detection Rate: {correctly_detected}/{n_attack} ({detection_rate:.4f})")
+        logger.info(
+            f"Detection Rate: {correctly_detected}/{n_attack} ({detection_rate:.4f})"
+        )
         logger.info(f"Missed: {missed}")
-        logger.info(f"Score range: [{min_score:.4f}, {max_score:.4f}], mean={mean_score:.4f}")
-        logger.info(f"Normal samples with scores in this range: {normal_in_attack_range}")
-        logger.info(f"Normal samples misclassified in this range: {normal_misclassified_in_range}")
+        logger.info(
+            f"Score range: [{min_score:.4f}, {max_score:.4f}], mean={mean_score:.4f}"
+        )
 
         # Compute AUC for this attack vs normal
-        mask_normal = labels_original.isna()
+        mask_normal = y_ts.isna()
         mask_combined = mask_attack | mask_normal
 
         if mask_normal.sum() > 0:
@@ -257,8 +267,6 @@ def evaluate_models_by_category(detector: Detector, df_test: pd.DataFrame, label
             "correctly_detected": correctly_detected,
             "missed": missed,
             "detection_rate": float(detection_rate),
-            "normal_in_score_range": normal_in_attack_range,
-            "normal_misclassified_in_range": normal_misclassified_in_range,
             "auc_vs_normal": float(auc_score) if auc_score is not None else None,
             "score_mean": mean_score,
             "score_min": min_score,
@@ -284,32 +292,36 @@ if __name__ == "__main__":
 
     logger.debug(f"Loading test dataset from: {test_data_path}")
     df_test_full = pd.read_csv(test_data_path, sep=";", low_memory=False)
-    logger.debug(f"Test dataset loaded:  {df_test_full.shape[0]} rows, {df_test_full.shape[1]} columns")
+    logger.debug(
+        f"Test dataset loaded:  {df_test_full.shape[0]} rows, {df_test_full.shape[1]} columns"
+    )
 
     logger.debug(f"\nSplitting test set (VAL_SIZE={VAL_SIZE})...")
     X_test_full = df_test_full.drop(columns=["ip.opt.time_stamp"], errors="ignore")
     y_test_full = _convert_labels_to_binary(
-        df_test_full["ip.opt.time_stamp"] if "ip.opt.time_stamp" in df_test_full else None
+        df_test_full["ip.opt.time_stamp"]
+        if "ip.opt.time_stamp" in df_test_full
+        else None
     )
 
     X_val, X_ts, y_val, y_ts = train_test_split(
-        X_test_full, y_test_full,
+        X_test_full,
+        y_test_full,
         test_size=1 - VAL_SIZE,
         stratify=y_test_full,
-        random_state=RANDOM_STATE
+        random_state=RANDOM_STATE,
     )
 
-    df_test = X_ts.copy()
-    test_indices = X_ts.index
-    labels_test = df_test_full.loc[test_indices, "ip.opt.time_stamp"]
-
-    logger.debug(f"Validation set:  {len(X_val)} samples")
     logger.debug(f"Test set: {len(X_ts)} samples")
 
+    processor = Preprocessor()
+    X_ts = processor.test(X_ts)
+    y_ts = df_test_full.loc[X_ts.index, "ip.opt.time_stamp"]
+
     if "ip.opt.time_stamp" in df_test_full.columns:
-        logger.info(f"\nLabel distribution in FINAL TEST set:")
-        logger.info(f"Normal (NaN): {labels_test.isna().sum()}")
-        label_counts = labels_test.value_counts(dropna=True)
+        logger.info("\nLabel distribution in FINAL TEST set:")
+        logger.info(f"Normal (NaN): {y_ts.isna().sum()}")
+        label_counts = y_ts.value_counts(dropna=True)
         for code, name in ATTACK_TYPE_MAP.items():
             count = label_counts.get(code, 0)
             if count > 0:
@@ -319,7 +331,7 @@ if __name__ == "__main__":
         logger.error(f"Models directory not found at: {models_dir}")
         sys.exit(1)
 
-    model_files = list(models_dir.glob("*.pkl"))
+    model_files = list(models_dir.glob("Ensemble_LogisticRegression.pkl"))
     if not model_files:
         logger.error(f"No model files (*.pkl) found in: {models_dir}")
         sys.exit(1)
@@ -330,14 +342,14 @@ if __name__ == "__main__":
 
         try:
             detector: Detector = joblib.load(model_path)
-            results = evaluate_models_by_category(detector, df_test.copy(), labels_test.copy())
+            results = evaluate_models_by_category(detector, X_ts.copy(), y_ts)
             if not results:
                 logger.warning(f"No results generated for {model_name}")
                 continue
 
             results["model_name"] = model_name
             out_file = output_dir / f"{model_name}.json"
-            with open(out_file, 'w', encoding='utf-8') as f:
+            with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=4, ensure_ascii=False)
             logger.info(f"\n[SAVED] Results written to: {out_file}")
 
@@ -349,4 +361,3 @@ if __name__ == "__main__":
             continue
 
     logger.info(f"Results saved in: {output_dir}")
-

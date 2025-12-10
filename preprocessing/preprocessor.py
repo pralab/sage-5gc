@@ -16,8 +16,7 @@ class Preprocessor:
     def train(
         self,
         df_train: pd.DataFrame,
-        output_path: Path | str | None = None,
-        skip_preprocess: bool = False,
+        data_path: Path | str | None = None,
     ) -> pd.DataFrame:
         """
         Call the train preprocessing pipeline.
@@ -26,33 +25,26 @@ class Preprocessor:
         ----------
         df_train : pd.DataFrame
             Training clean DataFrame.
-        output_path : Path | str | None
-            Path to save the processed DataFrame.
-        skip_preprocess : bool
-            Whether to skip preprocessing if processed data already exists.
+        data_path : Path | str | None
+            Path to load/save the preprocessed data. If specified, the preprocessed data
+            will be saved to this path after preprocessing. If a file exists at this path,
+            it will be loaded instead of preprocessing the data again.
 
         Returns
         -------
         pd.DataFrame
             The preprocessed DataFrame.
         """
-        if skip_preprocess and output_path is not None:
-            if not Path(output_path).exists():
-                raise FileNotFoundError(f"Dataset not found in {output_path}.")
+        if data_path is not None and Path(data_path).exists():
+            with Path(data_path).open("r") as f:
+                return pd.read_csv(f, sep=";")
 
-            with Path(output_path).open("r") as f:
-                df = pd.read_csv(f, sep=";")
-
-        else:
-            df = _train(df_train, output_path)
-
-        return df
+        return _train(df_train, data_path)
 
     def test(
         self,
         df_test: pd.DataFrame,
-        output_path: Path | str | None = None,
-        skip_preprocess: bool = False,
+        data_path: Path | str | None = None,
     ) -> pd.DataFrame:
         """
         Call the test preprocessing pipeline.
@@ -61,23 +53,18 @@ class Preprocessor:
         ----------
         df_test : pd.DataFrame
             Test clean DataFrame.
-        output_path : Path | str | None
-            Path to save the processed DataFrame.
-        skip_preprocess : bool
-            Whether to skip preprocessing if processed data already exists.
+        data_path : Path | str | None
+            Path to load/save the preprocessed data. If specified, the preprocessed data
+            will be saved to this path after preprocessing. If a file exists at this path,
+            it will be loaded instead of preprocessing the data again.
 
         Returns
         -------
         pd.DataFrame
             The preprocessed DataFrame.
         """
-        if skip_preprocess and output_path is not None:
-            if not Path(output_path).exists():
-                raise FileNotFoundError(f"Dataset not found in {output_path}.")
+        if data_path is not None and Path(data_path).exists():
+            with Path(data_path).open("r") as f:
+                return pd.read_csv(f, sep=";")
 
-            with Path(output_path).open("r") as f:
-                df = pd.read_csv(f, sep=";")
-        else:
-            df = _test(df_test, output_path)
-
-        return df
+        return _test(df_test, data_path)
