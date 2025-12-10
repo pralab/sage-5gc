@@ -1,0 +1,108 @@
+{
+    "threshold": 9740872580381.875,
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.7064710900584704,
+        "f1": 0.6521739130434783,
+        "precision": 1.0,
+        "recall": 0.4838709677419355,
+        "accuracy": 0.9037304452466908,
+        "detection_rate": 0.4838709677419355,
+        "fp_rate": 0.0,
+        "tp": 525,
+        "fn": 560,
+        "fp": 0,
+        "tn": 4732
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4732,
+        "misclassified_as_attack": 0,
+        "accuracy": 1.0,
+        "score_statistics": {
+            "mean": 242.49362290265196,
+            "min": 0.2246815970998701,
+            "max": 31925.94513994528
+        }
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 525,
+            "missed": 501,
+            "detection_rate": 0.5116959064327485,
+            "miss_rate": 0.48830409356725146,
+            "normal_samples_misclassified_as_attack": 0,
+            "auc_vs_normal": 0.6978162038890784,
+            "score_statistics": {
+                "mean": 235032569203355.3,
+                "min": 17.710047794084428,
+                "max": 966782293988705.6
+            }
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "miss_rate": 1.0,
+            "normal_samples_misclassified_as_attack": 0,
+            "auc_vs_normal": 0.3509005787112296,
+            "score_statistics": {
+                "mean": 22.86176077701346,
+                "min": 17.515930970065657,
+                "max": 35.160765101921164
+            }
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "miss_rate": 1.0,
+            "normal_samples_misclassified_as_attack": 0,
+            "auc_vs_normal": 1.0,
+            "score_statistics": {
+                "mean": 345181719.00000036,
+                "min": 345181719.0,
+                "max": 345181719.0000009
+            }
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "miss_rate": 1.0,
+            "normal_samples_misclassified_as_attack": 0,
+            "auc_vs_normal": 1.0,
+            "score_statistics": {
+                "mean": 3061535764.2889256,
+                "min": 3061535764.28885,
+                "max": 3061535764.289003
+            }
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 0,
+            "missed": 22,
+            "detection_rate": 0.0,
+            "miss_rate": 1.0,
+            "normal_samples_misclassified_as_attack": 0,
+            "auc_vs_normal": 1.0,
+            "score_statistics": {
+                "mean": 5569229652.418216,
+                "min": 5569229652.418214,
+                "max": 5569229652.418219
+            }
+        }
+    },
+    "model_name": "KNN"
+}
