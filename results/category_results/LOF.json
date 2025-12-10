@@ -1,0 +1,96 @@
+{
+    "threshold": 9.74087258038162e+22,
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.8340215261519763,
+        "f1": 0.6521739130434783,
+        "precision": 1.0,
+        "recall": 0.4838709677419355,
+        "accuracy": 0.9037304452466908,
+        "detection_rate": 0.4838709677419355,
+        "fp_rate": 0.0,
+        "tp": 525,
+        "fn": 560,
+        "fp": 0,
+        "tn": 4732
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4732,
+        "misclassified_as_attack": 0,
+        "accuracy": 1.0,
+        "score_mean": 15.708597167965255,
+        "score_min": 0.9286255270215387,
+        "score_max": 232.08679235283896
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 525,
+            "missed": 501,
+            "detection_rate": 0.5116959064327485,
+            "normal_in_score_range": 1842,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 0.829324296935633,
+            "score_mean": 2.3503256920466117e+24,
+            "score_min": 8.182190734437578,
+            "score_max": 9.667822939887059e+24
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 286,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 0.6174328629949931,
+            "score_mean": 9.643243133618238,
+            "score_min": 6.923866335740332,
+            "score_max": 13.887179137472424
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 282962078.6758413,
+            "score_min": 192354542.32676545,
+            "score_max": 465807058.5582878
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 101969319.87712759,
+            "score_min": 101969319.87712507,
+            "score_max": 101969319.87713012
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 0,
+            "missed": 22,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 1573642.2597914261,
+            "score_min": 1573642.2597914254,
+            "score_max": 1573642.2597914266
+        }
+    },
+    "model_name": "LOF"
+}

@@ -1,0 +1,96 @@
+{
+    "threshold": 6.331567177236147e+22,
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.8249999026142238,
+        "f1": 0.6521739130434783,
+        "precision": 1.0,
+        "recall": 0.4838709677419355,
+        "accuracy": 0.9037304452466908,
+        "detection_rate": 0.4838709677419355,
+        "fp_rate": 0.0,
+        "tp": 525,
+        "fn": 560,
+        "fp": 0,
+        "tn": 4732
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4732,
+        "misclassified_as_attack": 0,
+        "accuracy": 1.0,
+        "score_mean": 48.182775160345216,
+        "score_min": 0.9679490526753188,
+        "score_max": 279.2677017801142
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 525,
+            "missed": 501,
+            "detection_rate": 0.5116959064327485,
+            "normal_in_score_range": 2774,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 0.8222471036236219,
+            "score_mean": 1.5277116980168533e+24,
+            "score_min": 8.501319106973623,
+            "score_max": 6.284084910926545e+24
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 242,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 0.423028155276676,
+            "score_mean": 9.295951896633692,
+            "score_min": 6.360657832641246,
+            "score_max": 15.469682766669473
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 796475353.4636316,
+            "score_min": 424344682.4394022,
+            "score_max": 1155042034.255405
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 179305456.48267925,
+            "score_min": 179305454.90930232,
+            "score_max": 179305458.05605617
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 0,
+            "missed": 22,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 40182703662.94518,
+            "score_min": 38880747859.39207,
+            "score_max": 41267666832.57277
+        }
+    },
+    "model_name": "FeatureBagging"
+}

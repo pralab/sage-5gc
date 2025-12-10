@@ -1,0 +1,96 @@
+{
+    "threshold": 1.1742425399484968e+27,
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.8359828756851089,
+        "f1": 0.6027044430135222,
+        "precision": 1.0,
+        "recall": 0.4313364055299539,
+        "accuracy": 0.8939315798521574,
+        "detection_rate": 0.4313364055299539,
+        "fp_rate": 0.0,
+        "tp": 468,
+        "fn": 617,
+        "fp": 0,
+        "tn": 4732
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4732,
+        "misclassified_as_attack": 0,
+        "accuracy": 1.0,
+        "score_mean": 731628.0465424564,
+        "score_min": -54.12471001264161,
+        "score_max": 10903017.50451129
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 468,
+            "missed": 558,
+            "detection_rate": 0.45614035087719296,
+            "normal_in_score_range": 1654,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 0.8317609441091223,
+            "score_mean": 1.7865016570104586e+28,
+            "score_min": 229.37690078338292,
+            "score_max": 1.1683348776957736e+29
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 513,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 0.588822420183367,
+            "score_mean": 25.057659750859997,
+            "score_min": 10.234853874823221,
+            "score_max": 48.328015332406245
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 696641554.3984121,
+            "score_min": 696629920.2771327,
+            "score_max": 696652360.06424
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 1.1718595529966504e+19,
+            "score_min": 1.1718595470082787e+19,
+            "score_max": 1.171859558985022e+19
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 0,
+            "missed": 22,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 322304600545.9892,
+            "score_min": 321834019836.5263,
+            "score_max": 322696614174.71674
+        }
+    },
+    "model_name": "GMM"
+}

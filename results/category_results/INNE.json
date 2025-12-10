@@ -1,0 +1,96 @@
+{
+    "threshold": 1.0,
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.8507971025783858,
+        "f1": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "accuracy": 0.8134777376654633,
+        "detection_rate": 0.0,
+        "fp_rate": 0.0,
+        "tp": 0,
+        "fn": 1085,
+        "fp": 0,
+        "tn": 4732
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4732,
+        "misclassified_as_attack": 0,
+        "accuracy": 1.0,
+        "score_mean": 0.8833323306510128,
+        "score_min": 0.35881350770749904,
+        "score_max": 0.999967635123924
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 0,
+            "missed": 1026,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 1821,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 0.8456057550187105,
+            "score_mean": 0.983799072154875,
+            "score_min": 0.9636188249623746,
+            "score_max": 1.0
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 879,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 0.7325655114116653,
+            "score_mean": 0.9686193749604813,
+            "score_min": 0.9686193749604816,
+            "score_max": 0.9686193749604816
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 1.0,
+            "score_min": 1.0,
+            "score_max": 1.0
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 1.0,
+            "score_min": 1.0,
+            "score_max": 1.0
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 0,
+            "missed": 22,
+            "detection_rate": 0.0,
+            "normal_in_score_range": 0,
+            "normal_misclassified_in_range": 0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 1.0,
+            "score_min": 1.0,
+            "score_max": 1.0
+        }
+    },
+    "model_name": "INNE"
+}
