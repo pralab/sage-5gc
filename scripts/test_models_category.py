@@ -32,18 +32,6 @@ RANDOM_STATE = 42
 MODEL_DIR = Path(__file__).parent.parent / "data/trained_models"
 
 
-def _convert_labels_to_binary(labels: pd.Series) -> np.ndarray:
-    """
-    Converts labels to binary:  NaN -> benign (0), any numeric value -> attack (1)
-    """
-    if labels is not None:
-        return (~pd.isna(labels)).astype(int).values
-    else:
-        return np.zeros(len(labels), dtype=int)
-
-# ---------------------------------------------
-# Attack map
-# ---------------------------------------------
 ATTACK_TYPE_MAP = {
     0: "flooding",
     1: "session_deletion",
@@ -54,9 +42,17 @@ ATTACK_TYPE_MAP = {
     6: "restoration_teid",
 }
 
-# ---------------------------------------------
-# EVALUATION FUNCTION
-# ---------------------------------------------
+
+def _convert_labels_to_binary(labels: pd.Series) -> np.ndarray:
+    """
+    Converts labels to binary:  NaN -> benign (0), any numeric value -> attack (1)
+    """
+    if labels is not None:
+        return (~pd.isna(labels)).astype(int).values
+    else:
+        return np.zeros(len(labels), dtype=int)
+
+
 def evaluate_models_by_category(
     detector: Detector, X_ts: pd.DataFrame, y_ts: pd.Series
 ) -> dict:
@@ -64,39 +60,33 @@ def evaluate_models_by_category(
     Evaluate detector performance for each attack category separately.
 
     Overall metrics:  Normal vs All Attacks (binary classification)
-    Per-category metrics: Detection rate for that specific attack type
+    Per-category metrics: Detection rate for each specific attack type.
 
-    Returns a dictionary with overall metrics and per-category metrics.
+    Assumptions on y_ts:
+    - Normal traffic: NaN
+    - Attacks: integer codes as in ATTACK_TYPE_MAP
     """
 
     logger.debug("Computing anomaly scores...")
-    # Get the threshold from the detector
-    # if detector._threshold is not None:
-    #     threshold = float(detector._threshold)
-    # elif hasattr(detector._detector, "threshold_"):
-    #     threshold = float(detector._detector.threshold_)
-    # else:
-    #     logger.warning("No threshold found in detector!  Using default one.")
-    #     threshold = None
 
     results = {
-        # "threshold": threshold,
         "overall_performance": {},
         "normal_condition": {},
         "attacks_by_category": {},
     }
 
     # --------------------------------------------
-    # OVERALL PERFORMANCE:  Normal vs All Attacks
+    # GET SCORES & PREDICTIONS
     # --------------------------------------------
-    logger.info("OVERALL PERFORMANCE: Normal vs All Attacks")
-
     if isinstance(detector, Detector):
+        # Our wrapper Detector, skip preprocessing here
         y_scores = detector.decision_function(X_ts, skip_preprocess=True)
         y_pred = detector.predict(X_ts, skip_preprocess=True)
     else:
+        # Ensemble / meta-detector case
         detector1 = joblib.load(MODEL_DIR / "HBOS.pkl")
         detector2 = joblib.load(MODEL_DIR / "ABOD.pkl")
+
         scores1_ts = detector1.decision_function(X_ts)
         scores2_ts = detector2.decision_function(X_ts)
 
@@ -107,10 +97,17 @@ def evaluate_models_by_category(
         y_scores = detector.decision_function(X_meta_ts)
         y_pred = detector.predict(X_meta_ts)
 
+    # Binary labels: 0 = normal, 1 = attack
     y_ts_bin = _convert_labels_to_binary(y_ts)
 
+    # --------------------------------------------
+    # OVERALL PERFORMANCE: Normal vs All Attacks
+    # --------------------------------------------
+    logger.info("OVERALL PERFORMANCE: Normal vs All Attacks")
+
+    # AUC using binary labels
     try:
-        auc_overall = roc_auc_score(y_ts, y_scores)
+        auc_overall = roc_auc_score(y_ts_bin, y_scores)
     except Exception as e:
         logger.warning(f"Could not compute overall AUC: {e}")
         auc_overall = np.nan
@@ -120,20 +117,24 @@ def evaluate_models_by_category(
     recall_overall = recall_score(y_ts_bin, y_pred, zero_division=0)
     accuracy_overall = accuracy_score(y_ts_bin, y_pred)
 
-    # Confusion matrix elements
-    tp_overall = int(np.sum((y_ts == 1) & (y_pred == 1)))
-    fn_overall = int(np.sum((y_ts == 1) & (y_pred == 0)))
-    fp_overall = int(np.sum((y_ts == 0) & (y_pred == 1)))
-    tn_overall = int(np.sum((y_ts == 0) & (y_pred == 0)))
+    # Confusion matrix elements based on binary labels
+    y_true_bin = y_ts_bin
+    tp_overall = int(np.sum((y_true_bin == 1) & (y_pred == 1)))
+    fn_overall = int(np.sum((y_true_bin == 1) & (y_pred == 0)))
+    fp_overall = int(np.sum((y_true_bin == 0) & (y_pred == 1)))
+    tn_overall = int(np.sum((y_true_bin == 0) & (y_pred == 0)))
 
-    n_attacks_total = int(y_ts.sum())
-    n_normal_total = int(len(y_ts) - n_attacks_total)
+    n_attacks_total = int(np.sum(y_true_bin == 1))
+    n_normal_total = int(np.sum(y_true_bin == 0))
 
-    detection_rate_overall = tp_overall / n_attacks_total if n_attacks_total > 0 else 0
-    fp_rate_overall = fp_overall / n_normal_total if n_normal_total > 0 else 0
+    detection_rate_overall = (
+        tp_overall / n_attacks_total if n_attacks_total > 0 else 0.0
+    )
+    fp_rate_overall = fp_overall / n_normal_total if n_normal_total > 0 else 0.0
 
     logger.info(
-        f"Total samples: {len(y_ts)} (Normal: {n_normal_total}, Attacks: {n_attacks_total})"
+        f"Total samples: {len(y_true_bin)} "
+        f"(Normal: {n_normal_total}, Attacks: {n_attacks_total})"
     )
     logger.info(
         f"AUC          : {auc_overall:.4f}"
@@ -142,16 +143,16 @@ def evaluate_models_by_category(
     )
     logger.info(f"F1 Score     : {f1_overall:.4f}")
     logger.info(f"Precision    : {precision_overall:.4f}")
-    logger.info(f"Recall       :  {recall_overall:.4f}")
+    logger.info(f"Recall       : {recall_overall:.4f}")
     logger.info(f"Accuracy     : {accuracy_overall:.4f}")
     logger.info(f"Detection Rate: {detection_rate_overall:.4f}")
     logger.info(f"FP Rate      : {fp_rate_overall:.4f}")
     logger.info(f"TP/FN/FP/TN  : {tp_overall}/{fn_overall}/{fp_overall}/{tn_overall}")
 
     results["overall_performance"] = {
-        "n_samples_total": len(y_ts),
-        "n_normal": n_normal_total,
-        "n_attacks": n_attacks_total,
+        "n_samples_total": int(len(y_true_bin)),
+        "n_normal": int(n_normal_total),
+        "n_attacks": int(n_attacks_total),
         "auc": float(auc_overall) if not np.isnan(auc_overall) else None,
         "f1": float(f1_overall),
         "precision": float(precision_overall),
@@ -169,35 +170,40 @@ def evaluate_models_by_category(
     # NORMAL CONDITION METRICS (only normal traffic)
     # ------------------------------------------------------
     mask_normal = y_ts.isna()
-    n_normal = mask_normal.sum()
+    n_normal = int(mask_normal.sum())
 
     if n_normal > 0:
         logger.info(f"NORMAL CONDITION ({n_normal} samples)")
 
-        y_pred_normal = y_ts_bin[mask_normal]
+        # Use model predictions, not labels
+        y_pred_normal = y_pred[mask_normal]
         y_scores_normal = y_scores[mask_normal]
 
         correctly_classified_normal = int(np.sum(y_pred_normal == 0))
         misclassified_as_attack = int(np.sum(y_pred_normal == 1))
 
-        normal_accuracy = correctly_classified_normal / n_normal
+        normal_accuracy = (
+            correctly_classified_normal / n_normal if n_normal > 0 else 0.0
+        )
 
         mean_score_normal = float(np.mean(y_scores_normal))
         min_score_normal = float(np.min(y_scores_normal))
         max_score_normal = float(np.max(y_scores_normal))
 
         logger.info(
-            f"Correctly classified as normal: {correctly_classified_normal}/{n_normal} ({normal_accuracy:.4f})"
+            f"Correctly classified as normal: "
+            f"{correctly_classified_normal}/{n_normal} ({normal_accuracy:.4f})"
         )
         logger.info(
             f"Misclassified as attack (FP): {misclassified_as_attack}/{n_normal}"
         )
         logger.info(
-            f"Score range: [{min_score_normal:.4f}, {max_score_normal:.4f}], mean={mean_score_normal:.4f}"
+            f"Score range: [{min_score_normal:.4f}, {max_score_normal:.4f}], "
+            f"mean={mean_score_normal:.4f}"
         )
 
         results["normal_condition"] = {
-            "n_samples": int(n_normal),
+            "n_samples": n_normal,
             "correctly_classified": correctly_classified_normal,
             "misclassified_as_attack": misclassified_as_attack,
             "accuracy": float(normal_accuracy),
@@ -209,12 +215,11 @@ def evaluate_models_by_category(
         logger.warning("[WARN] No normal samples found in test data")
 
     # ------------------------------------------------------
-    # EVALUATE EACH ATTACK TYPE:  detection metrics
+    # EVALUATE EACH ATTACK TYPE: detection metrics
     # ------------------------------------------------------
-
     for attack_code, attack_name in ATTACK_TYPE_MAP.items():
         mask_attack = y_ts == attack_code
-        n_attack = mask_attack.sum()
+        n_attack = int(mask_attack.sum())
 
         if n_attack == 0:
             continue
@@ -222,17 +227,15 @@ def evaluate_models_by_category(
         logger.info(f"{attack_name.upper()} (code {attack_code})")
         logger.info(f"Attack samples: {n_attack}")
 
-        # Get scores and predictions for this attack
+        # Use model predictions, not labels
         y_scores_attack = y_scores[mask_attack]
-        y_pred_attack = y_ts_bin[mask_attack]
+        y_pred_attack = y_pred[mask_attack]
 
-        # Detection metrics
         correctly_detected = int(np.sum(y_pred_attack == 1))
         missed = int(np.sum(y_pred_attack == 0))
 
-        detection_rate = correctly_detected / n_attack if n_attack > 0 else 0
+        detection_rate = correctly_detected / n_attack if n_attack > 0 else 0.0
 
-        # Score statistics
         mean_score = float(np.mean(y_scores_attack))
         min_score = float(np.min(y_scores_attack))
         max_score = float(np.max(y_scores_attack))
@@ -245,11 +248,12 @@ def evaluate_models_by_category(
             f"Score range: [{min_score:.4f}, {max_score:.4f}], mean={mean_score:.4f}"
         )
 
-        # Compute AUC for this attack vs normal
-        mask_normal = y_ts.isna()
-        mask_combined = mask_attack | mask_normal
+        # AUC attack vs normal
+        mask_normal_global = y_ts.isna()
+        mask_combined = mask_attack | mask_normal_global
 
-        if mask_normal.sum() > 0:
+        if mask_normal_global.sum() > 0:
+            # True: 1 for this attack, 0 for normal
             y_true_binary = mask_attack[mask_combined].astype(int).values
             y_scores_binary = y_scores[mask_combined]
 
@@ -257,13 +261,14 @@ def evaluate_models_by_category(
                 auc_score = roc_auc_score(y_true_binary, y_scores_binary)
                 logger.info(f"AUC vs normal: {auc_score:.4f}")
             except Exception as e:
+                logger.warning(f"Could not compute AUC for attack {attack_name}: {e}")
                 auc_score = None
         else:
             auc_score = None
 
         results["attacks_by_category"][attack_name] = {
             "attack_code": attack_code,
-            "n_samples": int(n_attack),
+            "n_samples": n_attack,
             "correctly_detected": correctly_detected,
             "missed": missed,
             "detection_rate": float(detection_rate),
@@ -282,9 +287,9 @@ def evaluate_models_by_category(
 if __name__ == "__main__":
     models_dir = Path(__file__).parent.parent / "data/trained_models"
     output_dir = Path(__file__).parent.parent / "results/category_results"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     test_data_path = Path(__file__).parent.parent / "data/datasets/test_dataset.csv"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     if not test_data_path.exists():
         logger.error(f"Test dataset not found at:  {test_data_path}")
@@ -355,9 +360,6 @@ if __name__ == "__main__":
 
         except Exception as e:
             logger.error(f"Error evaluating model {model_name}: {e}")
-            import traceback
-
-            traceback.print_exc()
             continue
 
     logger.info(f"Results saved in: {output_dir}")

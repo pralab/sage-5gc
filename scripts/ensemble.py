@@ -72,7 +72,7 @@ X_meta_tr = np.vstack([s1_tr_n, s2_tr_n]).T
 # [Step 4] Train meta-classifier
 # -------------------------------
 print("Training meta-classifier...")
-meta_clf = LogisticRegression(random_state=42)
+meta_clf = LogisticRegression(random_state=42, class_weight="balanced")
 meta_clf.fit(X_meta_tr, y_val)
 
 # -------------------------------------
