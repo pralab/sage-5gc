@@ -267,7 +267,6 @@ if __name__ == "__main__":
     # ---------------------------------------------
     # [Step 2.1] Preprocess train and test datasets
     # ---------------------------------------------
-    logger.info("Preprocessing datasets...")
     processor = Preprocessor()
     X_tr = processor.train(X_tr, PTRAIN_PATH)
     X_ts = processor.test(X_ts, PTEST_PATH)
@@ -341,12 +340,12 @@ if __name__ == "__main__":
 
         logger.info("Tuning threshold on validation set...")
 
-        y_scores = final_detector.decision_function(X_val, skip_preprocess=True)
+        y_scores = final_detector.decision_function(X_val)
         best_thresh, _ = _tune_threshold(y_scores, y_val)
         final_detector.set_threshold(best_thresh)
 
         # Final Evaluation on Test Set
-        y_scores = final_detector.decision_function(X_ts, skip_preprocess=True)
+        y_scores = final_detector.decision_function(X_ts)
         y_pred = (y_scores > best_thresh).astype(int)
 
         prec = precision_score(y_ts, y_pred)
