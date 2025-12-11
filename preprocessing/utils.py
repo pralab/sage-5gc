@@ -210,7 +210,7 @@ def preprocessing_train(
     # --------------------
     simple_imputer = SimpleImputer(strategy="most_frequent")
     iter_imputer = IterativeImputer(
-        estimator=RandomForestRegressor(n_jobs=-1, max_depth=20, n_estimators=50),
+        estimator=RandomForestRegressor(n_jobs=-1, max_depth=20, n_estimators=50, random_state=random_state),
         initial_strategy="median",
         max_iter=10,
         random_state=random_state,
