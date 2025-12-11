@@ -56,7 +56,7 @@ class Detector:
             The trained Detector instance.
         """
         X = df.copy()
-        if skip_preprocess:
+        if not skip_preprocess:
             X = self._preprocessor.train(X, data_path)
         X = X[sorted(X.columns)]
 
@@ -98,8 +98,8 @@ class Detector:
             raise ValueError("Model not trained, call fit().")
 
         X = df.copy()
-        if skip_preprocess:
-            X = self._preprocessor.test(X, data_path, skip_preprocess)
+        if not skip_preprocess:
+            X = self._preprocessor.test(X, data_path)
         X = X[sorted(X.columns)]
 
         if X.isnull().any().any():
@@ -141,8 +141,8 @@ class Detector:
             raise ValueError("Model not trained, call fit().")
 
         X = df.copy()
-        if skip_preprocess:
-            X = self._preprocessor.test(X, data_path, skip_preprocess)
+        if not skip_preprocess:
+            X = self._preprocessor.test(X, data_path)
         X = X[sorted(X.columns)]
 
         if X.isnull().any().any():
