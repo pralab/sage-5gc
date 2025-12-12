@@ -15,7 +15,6 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 
-# Import Preprocessor and Detector
 sys.path.append(str(Path(__file__).parent.parent))
 import logging
 
@@ -84,17 +83,11 @@ def evaluate_models_by_category(
         y_pred = detector.predict(X_ts, skip_preprocess=True)
     else:
         # Ensemble / meta-detector case
-        detector1: Detector= joblib.load(MODEL_DIR / "IForest.pkl")
+        detector1: Detector = joblib.load(MODEL_DIR / "IForest.pkl")
         detector2: Detector = joblib.load(MODEL_DIR / "KNN.pkl")
         detector3: Detector = joblib.load(MODEL_DIR / "LOF.pkl")
         detector4: Detector = joblib.load(MODEL_DIR / "INNE.pkl")
         detector5: Detector = joblib.load(MODEL_DIR / "PCA.pkl")
-
-        detector1.set_threshold(None)
-        detector2.set_threshold(None)
-        detector3.set_threshold(None)
-        detector4.set_threshold(None)
-        detector5.set_threshold(None)
 
         scores1_ts = detector1.decision_function(X_ts)
         scores2_ts = detector2.decision_function(X_ts)
@@ -296,9 +289,6 @@ def evaluate_models_by_category(
     return results
 
 
-# ---------------------------------------------
-# MAIN LOOP THROUGH ALL TRAINED MODELS
-# ---------------------------------------------
 if __name__ == "__main__":
     models_dir = Path(__file__).parent.parent / "data/trained_models"
     output_dir = Path(__file__).parent.parent / "results/category_results"
@@ -351,7 +341,7 @@ if __name__ == "__main__":
         logger.error(f"Models directory not found at: {models_dir}")
         sys.exit(1)
 
-    model_files = list(models_dir.glob("Ensemble_LogisticRegression.pkl"))
+    model_files = list(models_dir.glob("*.pkl"))
     if not model_files:
         logger.error(f"No model files (*.pkl) found in: {models_dir}")
         sys.exit(1)

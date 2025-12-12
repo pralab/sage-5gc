@@ -28,7 +28,6 @@ class Detector:
         self._preprocessor = Preprocessor()
         self._trained = False
         self._detector: BaseDetector = self.detector_class(**self.detector_params)
-        self._threshold: float | None = None
 
     def fit(
         self,
@@ -105,12 +104,7 @@ class Detector:
         if X.isnull().any().any():
             raise ValueError("Input data contains NaN values after preprocessing.")
 
-        if self._threshold is not None:
-            scores = self._detector.decision_function(X.values)
-            labels = (scores > self._threshold).astype(int)
-            return labels
-        else:
-            return self._detector.predict(X.values)
+        return self._detector.predict(X.values)
 
     def decision_function(
         self,
@@ -149,14 +143,3 @@ class Detector:
             raise ValueError("Input data contains NaN values after preprocessing.")
 
         return self._detector.decision_function(X.values)
-
-    def set_threshold(self, threshold: float) -> None:
-        """
-        Set the decision threshold for anomaly detection.
-
-        Parameters
-        ----------
-        threshold : float
-            The threshold value to set.
-        """
-        self._threshold = threshold
