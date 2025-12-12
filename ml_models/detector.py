@@ -6,8 +6,10 @@ from pyod.models.base import BaseDetector
 
 from preprocessing import Preprocessor
 
+from . import base_detector
 
-class Detector:
+
+class Detector(base_detector.BaseDetector):
     """Detector wrapper class for anomaly detection models."""
 
     def __init__(self, detector_class: BaseDetector, **detector_params) -> None:
@@ -31,7 +33,7 @@ class Detector:
 
     def fit(
         self,
-        df: pd.DataFrame,
+        X: pd.DataFrame,
         data_path: Path | str | None = None,
         skip_preprocess: bool = False,
     ) -> "Detector":
@@ -40,7 +42,7 @@ class Detector:
 
         Parameters
         ----------
-        df : pd.DataFrame
+        X : pd.DataFrame
             The training data.
         data_path : Path | str | None
             Path to load/save the preprocessed data. If specified, the preprocessed data
@@ -54,7 +56,7 @@ class Detector:
         Self
             The trained Detector instance.
         """
-        X = df.copy()
+        X = X.copy()
         if not skip_preprocess:
             X = self._preprocessor.train(X, data_path)
         X = X[sorted(X.columns)]
@@ -69,16 +71,16 @@ class Detector:
 
     def predict(
         self,
-        df: pd.DataFrame,
+        X: pd.DataFrame,
         data_path: Path | str | None = None,
         skip_preprocess: bool = False,
     ) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
         """
-        Predict anomalies in the data.
+        Predict class labels for samples in X.
 
         Parameters
         ----------
-        df : pd.DataFrame
+        X : pd.DataFrame
             The data to predict on.
         data_path : Path | str | None
             Path to load/save the preprocessed data. If specified, the preprocessed data
@@ -96,7 +98,7 @@ class Detector:
         if not self._trained:
             raise ValueError("Model not trained, call fit().")
 
-        X = df.copy()
+        X = X.copy()
         if not skip_preprocess:
             X = self._preprocessor.test(X, data_path)
         X = X[sorted(X.columns)]
@@ -108,12 +110,12 @@ class Detector:
 
     def decision_function(
         self,
-        df: pd.DataFrame,
+        X: pd.DataFrame,
         data_path: Path | str | None = None,
         skip_preprocess: bool = False,
     ) -> np.ndarray:
         """
-        Compute the decision function scores for the data.
+        Predict confidence scores for samples.
 
         Parameters
         ----------
@@ -134,7 +136,7 @@ class Detector:
         if not self._trained:
             raise ValueError("Model not trained, call fit().")
 
-        X = df.copy()
+        X = X.copy()
         if not skip_preprocess:
             X = self._preprocessor.test(X, data_path)
         X = X[sorted(X.columns)]

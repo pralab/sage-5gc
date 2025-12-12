@@ -27,8 +27,6 @@ from pyod.models.lmdd import LMDD  # noqa: F401
 from pyod.models.loda import LODA  # noqa: F401
 from pyod.models.lof import LOF
 from pyod.models.lscp import LSCP  # noqa: F401
-from pyod.models.mcd import MCD  # noqa: F401
-from pyod.models.ocsvm import OCSVM  # noqa: F401
 from pyod.models.pca import PCA  # noqa: F401
 import seaborn as sns
 from sklearn.cluster import KMeans  # noqa: F401
@@ -157,7 +155,6 @@ def _make_json_serializable(d: dict) -> dict:
 
 
 def _convert_labels_to_binary(labels: pd.Series) -> np.ndarray:
-    # NaN -> benign (0), qualsiasi valore numerico -> attack (1)
     if labels is not None:
         return (~pd.isna(labels)).astype(int).values
     else:

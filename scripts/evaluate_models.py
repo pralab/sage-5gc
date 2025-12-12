@@ -5,7 +5,6 @@ import sys
 import joblib
 import numpy as np
 import pandas as pd
-from pyod.utils.utility import standardizer
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -18,19 +17,19 @@ from sklearn.model_selection import train_test_split
 sys.path.append(str(Path(__file__).parent.parent))
 import logging
 
-from ml_models import Detector
+from ml_models import Detector, EnsembleDetector
 from preprocessing import Preprocessor
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Same constants as in train_models.py
+# Same configuration as in train
 VAL_SIZE = 0.50
 RANDOM_STATE = 42
 MODEL_DIR = Path(__file__).parent.parent / "data/trained_models"
-
-
+OUTPUT_DIR = Path(__file__).parent.parent / "results/category_results"
+TS_DATA_PATH = Path(__file__).parent.parent / "data/datasets/test_dataset.csv"
 ATTACK_TYPE_MAP = {
     0: "flooding",
     1: "session_deletion",
@@ -43,9 +42,6 @@ ATTACK_TYPE_MAP = {
 
 
 def _convert_labels_to_binary(labels: pd.Series) -> np.ndarray:
-    """
-    Converts labels to binary:  NaN -> benign (0), any numeric value -> attack (1)
-    """
     if labels is not None:
         return (~pd.isna(labels)).astype(int).values
     else:
@@ -53,7 +49,7 @@ def _convert_labels_to_binary(labels: pd.Series) -> np.ndarray:
 
 
 def evaluate_models_by_category(
-    detector: Detector, X_ts: pd.DataFrame, y_ts: pd.Series
+    detector: EnsembleDetector | Detector, X_ts: pd.DataFrame, y_ts: pd.Series
 ) -> dict:
     """
     Evaluate detector performance for each attack category separately.
@@ -65,53 +61,23 @@ def evaluate_models_by_category(
     - Normal traffic: NaN
     - Attacks: integer codes as in ATTACK_TYPE_MAP
     """
-
-    logger.debug("Computing anomaly scores...")
-
     results = {
         "overall_performance": {},
         "normal_condition": {},
         "attacks_by_category": {},
     }
-
-    # --------------------------------------------
-    # GET SCORES & PREDICTIONS
-    # --------------------------------------------
-    if isinstance(detector, Detector):
-        # Our wrapper Detector, skip preprocessing here
-        y_scores = detector.decision_function(X_ts, skip_preprocess=True)
-        y_pred = detector.predict(X_ts, skip_preprocess=True)
-    else:
-        # Ensemble / meta-detector case
-        detector1: Detector = joblib.load(MODEL_DIR / "IForest.pkl")
-        detector2: Detector = joblib.load(MODEL_DIR / "KNN.pkl")
-        detector3: Detector = joblib.load(MODEL_DIR / "LOF.pkl")
-        detector4: Detector = joblib.load(MODEL_DIR / "INNE.pkl")
-        detector5: Detector = joblib.load(MODEL_DIR / "PCA.pkl")
-
-        scores1_ts = detector1.decision_function(X_ts)
-        scores2_ts = detector2.decision_function(X_ts)
-        scores3_ts = detector3.decision_function(X_ts)
-        scores4_ts = detector4.decision_function(X_ts)
-        scores5_ts = detector5.decision_function(X_ts)
-
-        s1_ts_n = standardizer(scores1_ts.reshape(-1, 1)).ravel()
-        s2_ts_n = standardizer(scores2_ts.reshape(-1, 1)).ravel()
-        s3_ts_n = standardizer(scores3_ts.reshape(-1, 1)).ravel()
-        s4_ts_n = standardizer(scores4_ts.reshape(-1, 1)).ravel()
-        s5_ts_n = standardizer(scores5_ts.reshape(-1, 1)).ravel()
-        X_meta_ts = np.vstack([s1_ts_n, s2_ts_n, s3_ts_n, s4_ts_n, s5_ts_n]).T
-
-        y_scores = detector.decision_function(X_meta_ts)
-        y_pred = detector.predict(X_meta_ts)
-
-    # Binary labels: 0 = normal, 1 = attack
     y_ts_bin = _convert_labels_to_binary(y_ts)
 
-    # --------------------------------------------
-    # OVERALL PERFORMANCE: Normal vs All Attacks
-    # --------------------------------------------
-    logger.info("OVERALL PERFORMANCE: Normal vs All Attacks")
+    # ----------------------------------
+    # [Step 1] GET SCORES & PREDICTIONS
+    # ----------------------------------
+    y_scores = detector.decision_function(X_ts, skip_preprocess=True)
+    y_pred = detector.predict(X_ts, skip_preprocess=True)
+
+    # ----------------------------------------------------
+    # [Step 2] OVERALL PERFORMANCE: Normal vs All Attacks
+    # ----------------------------------------------------
+    logger.info("Overall Performance: Normal vs All Attacks")
 
     # AUC using binary labels
     try:
@@ -175,7 +141,7 @@ def evaluate_models_by_category(
     }
 
     # ------------------------------------------------------
-    # NORMAL CONDITION METRICS (only normal traffic)
+    # [Step 3] NORMAL CONDITION METRICS (only normal traffic)
     # ------------------------------------------------------
     mask_normal = y_ts.isna()
     n_normal = int(mask_normal.sum())
@@ -220,10 +186,10 @@ def evaluate_models_by_category(
             "score_max": max_score_normal,
         }
     else:
-        logger.warning("[WARN] No normal samples found in test data")
+        logger.warning("No normal samples found in test data")
 
     # ------------------------------------------------------
-    # EVALUATE EACH ATTACK TYPE: detection metrics
+    # [Step 4] EVALUATE EACH ATTACK TYPE: detection metrics
     # ------------------------------------------------------
     for attack_code, attack_name in ATTACK_TYPE_MAP.items():
         mask_attack = y_ts == attack_code
@@ -290,18 +256,13 @@ def evaluate_models_by_category(
 
 
 if __name__ == "__main__":
-    models_dir = Path(__file__).parent.parent / "data/trained_models"
-    output_dir = Path(__file__).parent.parent / "results/category_results"
-    test_data_path = Path(__file__).parent.parent / "data/datasets/test_dataset.csv"
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    if not test_data_path.exists():
-        logger.error(f"Test dataset not found at:  {test_data_path}")
+    if not TS_DATA_PATH.exists():
+        logger.error(f"Test dataset not found at:  {TS_DATA_PATH}")
         sys.exit(1)
 
-    logger.debug(f"Loading test dataset from: {test_data_path}")
-    df_test_full = pd.read_csv(test_data_path, sep=";", low_memory=False)
+    df_test_full = pd.read_csv(TS_DATA_PATH, sep=";", low_memory=False)
     logger.debug(
         f"Test dataset loaded:  {df_test_full.shape[0]} rows, {df_test_full.shape[1]} columns"
     )
@@ -329,42 +290,32 @@ if __name__ == "__main__":
     y_ts = df_test_full.loc[X_ts.index, "ip.opt.time_stamp"]
 
     if "ip.opt.time_stamp" in df_test_full.columns:
-        logger.info("\nLabel distribution in FINAL TEST set:")
-        logger.info(f"Normal (NaN): {y_ts.isna().sum()}")
         label_counts = y_ts.value_counts(dropna=True)
         for code, name in ATTACK_TYPE_MAP.items():
             count = label_counts.get(code, 0)
             if count > 0:
                 logger.info(f"{name} ({code}): {count}")
 
-    if not models_dir.exists():
-        logger.error(f"Models directory not found at: {models_dir}")
+    if not MODEL_DIR.exists():
+        logger.error(f"Models directory not found at: {MODEL_DIR}")
         sys.exit(1)
 
-    model_files = list(models_dir.glob("*.pkl"))
-    if not model_files:
-        logger.error(f"No model files (*.pkl) found in: {models_dir}")
-        sys.exit(1)
-
-    for model_path in model_files:
+    for model_path in list(MODEL_DIR.glob("Ensemble*.pkl")):
         model_name = model_path.stem
-        logger.info(f"EVALUATING MODEL: {model_name}")
+        logger.info(f"Evaluating model: {model_name}")
 
         try:
-            detector: Detector = joblib.load(model_path)
+            detector = joblib.load(model_path)
             results = evaluate_models_by_category(detector, X_ts.copy(), y_ts)
             if not results:
                 logger.warning(f"No results generated for {model_name}")
                 continue
 
             results["model_name"] = model_name
-            out_file = output_dir / f"{model_name}.json"
+            out_file = OUTPUT_DIR / f"{model_name}.json"
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=4, ensure_ascii=False)
-            logger.info(f"\n[SAVED] Results written to: {out_file}")
 
         except Exception as e:
             logger.error(f"Error evaluating model {model_name}: {e}")
             continue
-
-    logger.info(f"Results saved in: {output_dir}")

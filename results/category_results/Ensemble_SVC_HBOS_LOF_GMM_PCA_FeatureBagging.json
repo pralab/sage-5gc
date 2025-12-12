@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.9847521142452018,
+        "f1": 0.9636363636363636,
+        "precision": 0.9506726457399103,
+        "recall": 0.9769585253456221,
+        "accuracy": 0.9862472064638129,
+        "detection_rate": 0.9769585253456221,
+        "fp_rate": 0.01162299239222316,
+        "tp": 1060,
+        "fn": 25,
+        "fp": 55,
+        "tn": 4677
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4677,
+        "misclassified_as_attack": 55,
+        "accuracy": 0.9883770076077768,
+        "score_mean": -1.7840711463896517,
+        "score_min": -2.713323853668285,
+        "score_max": 1.9557806806338984
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 1026,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.9996947496947497,
+            "score_mean": 2.1162639463966917,
+            "score_min": 0.9885033563346375,
+            "score_max": 7.054750976651588
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.1862279732102217,
+            "score_mean": -2.367597083464994,
+            "score_min": -2.4116630487717443,
+            "score_max": -2.22062074626577
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.5298323471400395,
+            "score_mean": -1.7784446690935354,
+            "score_min": -2.011300603447441,
+            "score_max": -1.3005864099172566
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 2.7975194443352542,
+            "score_min": 2.7975194443348625,
+            "score_max": 2.797519444335645
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 22,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.9995581341735188,
+            "score_mean": 1.2597020579745253,
+            "score_min": 0.7625457752504572,
+            "score_max": 1.849463444697229
+        }
+    },
+    "model_name": "Ensemble_SVC_HBOS_LOF_GMM_PCA_FeatureBagging"
+}
