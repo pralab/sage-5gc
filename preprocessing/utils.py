@@ -168,6 +168,30 @@ def _convert_to_numeric(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     return df, cat_cols
 
 
+def _load_imputers(random_state: int = 42) -> tuple[SimpleImputer, IterativeImputer]:
+    simple_imputer_path = (
+        Path(__file__).parent / "models_preprocessing/simple_imputer.pkl"
+    )
+    iter_imputer_path = Path(__file__).parent / "models_preprocessing/iter_imputer.pkl"
+
+    if not simple_imputer_path.exists():
+        simple_imputer = SimpleImputer(strategy="most_frequent")
+        iter_imputer = IterativeImputer(
+            estimator=RandomForestRegressor(
+                n_jobs=-1, max_depth=20, n_estimators=50, random_state=random_state
+            ),
+            initial_strategy="median",
+            max_iter=10,
+            random_state=random_state,
+            skip_complete=True,
+        )
+    else:
+        simple_imputer: SimpleImputer = joblib.load(simple_imputer_path)
+        iter_imputer: IterativeImputer = joblib.load(iter_imputer_path)
+
+    return simple_imputer, iter_imputer
+
+
 def preprocessing_train(
     df_train: pd.DataFrame,
     output_path: Path | str | None = None,
@@ -208,16 +232,7 @@ def preprocessing_train(
     # --------------------
     # [Step 3] Imputation
     # --------------------
-    simple_imputer = SimpleImputer(strategy="most_frequent")
-    iter_imputer = IterativeImputer(
-        estimator=RandomForestRegressor(
-            n_jobs=-1, max_depth=20, n_estimators=50, random_state=random_state
-        ),
-        initial_strategy="median",
-        max_iter=10,
-        random_state=random_state,
-        skip_complete=True,
-    )
+    simple_imputer, iter_imputer = _load_imputers(random_state=random_state)
 
     df_cat = df_processed[cat_cols]
     df_cat = simple_imputer.fit_transform(df_cat)
