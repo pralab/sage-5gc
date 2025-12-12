@@ -3,12 +3,11 @@
     "best_params": {
         "contamination": 0.001,
         "covariance_type": "full",
-        "n_components": 4,
+        "n_components": 10,
         "random_state": 42
     },
-    "best_threshold": 2.265579386457132e+24,
-    "roc_auc": 0.8244771357674583,
-    "f1": 0.6317780580075663,
-    "precision": 1.0,
-    "recall": 0.46175115207373274
+    "roc_auc": 0.8601801247317022,
+    "f1": 0.5891935921802878,
+    "precision": 0.4176289453425712,
+    "recall": 1.0
 }

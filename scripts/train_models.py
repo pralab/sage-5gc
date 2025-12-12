@@ -54,8 +54,6 @@ logger.setLevel(logging.INFO)
 # --- PATHS AND CONSTANTS ---
 TRAIN_PATH = Path(__file__).parent.parent / "data/datasets/train_dataset.csv"
 TEST_PATH = Path(__file__).parent.parent / "data/datasets/test_dataset.csv"
-PTRAIN_PATH = Path(__file__).parent.parent / "data/datasets/train_processed.csv"
-PTEST_PATH = Path(__file__).parent.parent / "data/datasets/test_processed.csv"
 
 LABEL_COL = "ip.opt.time_stamp"
 VAL_SIZE = 0.50
@@ -186,24 +184,7 @@ def _restore_estimator(e: dict | list | str) -> object:
     return e
 
 
-def _tune_threshold(y_scores: np.ndarray, y_true: np.ndarray, n_grid=100) -> float:
-    # Generate candidate thresholds between min and max score
-    taus = np.linspace(y_scores.min(), y_scores.max(), n_grid)
-
-    best_tau = None
-    best_f1 = -1.0
-
-    for t in taus:
-        y_pred = (y_scores >= t).astype(int)
-        f1 = f1_score(y_true, y_pred, zero_division=0)
-        if f1 > best_f1:
-            best_f1 = f1
-            best_tau = t
-
-    return best_tau, best_f1
-
-
-def _check_model_sanity(y_true, y_scores, model_name):
+def plot_score_distribution(y_true, y_scores, model_name):
     plt.figure(figsize=(10, 6))
 
     sns.histplot(
@@ -268,8 +249,8 @@ if __name__ == "__main__":
     # [Step 2.1] Preprocess train and test datasets
     # ---------------------------------------------
     processor = Preprocessor()
-    X_tr = processor.train(X_tr, PTRAIN_PATH)
-    X_ts = processor.test(X_ts, PTEST_PATH)
+    X_tr = processor.train(X_tr)
+    X_ts = processor.test(X_ts)
     X_val = processor.test(X_val)
 
     # ---------------------------------------------
@@ -338,15 +319,9 @@ if __name__ == "__main__":
         final_detector = Detector(detector_class=eval(model_name), **best_params)
         final_detector.fit(X_tr, skip_preprocess=True)
 
-        logger.info("Tuning threshold on validation set...")
-
-        y_scores = final_detector.decision_function(X_val, skip_preprocess=True)
-        best_thresh, _ = _tune_threshold(y_scores, y_val)
-        final_detector.set_threshold(best_thresh)
-
         # Final Evaluation on Test Set
         y_scores = final_detector.decision_function(X_ts, skip_preprocess=True)
-        y_pred = (y_scores > best_thresh).astype(int)
+        y_pred = final_detector.predict(X_ts, skip_preprocess=True)
 
         prec = precision_score(y_ts, y_pred)
         rec = recall_score(y_ts, y_pred)
@@ -359,7 +334,6 @@ if __name__ == "__main__":
         results_entry = {
             "model": model_name,
             "best_params": best_params,
-            "best_threshold": best_thresh,
             "roc_auc": roc_auc_score(y_ts, y_scores),
             "f1": f1,
             "precision": prec,
@@ -369,5 +343,5 @@ if __name__ == "__main__":
         with test_result_file.open("w") as f:
             json.dump(_make_json_serializable(results_entry), f, indent=4)
 
-        # _check_model_sanity(y_ts, y_scores, model_name)
+        plot_score_distribution(y_ts, y_scores, model_name)
         joblib.dump(final_detector, model_file)

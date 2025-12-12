@@ -11,13 +11,13 @@
     "GMM": {
         "contamination": 0.001,
         "covariance_type": "full",
-        "n_components": 4,
+        "n_components": 10,
         "random_state": 42
     },
     "KNN": {
         "contamination": 0.001,
         "method": "largest",
-        "n_neighbors": 20
+        "n_neighbors": 5
     },
     "LOF": {
         "contamination": 0.01,
@@ -26,7 +26,7 @@
     "IForest": {
         "contamination": 0.01,
         "max_features": 0.75,
-        "max_samples": 0.7,
+        "max_samples": 0.1,
         "n_estimators": 25,
         "random_state": 42
     },
@@ -50,7 +50,7 @@
                 "p": 2
             }
         },
-        "contamination": 0.001,
+        "contamination": 0.01,
         "n_estimators": 20
     },
     "PCA": {
@@ -67,6 +67,6 @@
     "LODA": {
         "contamination": 0.01,
         "n_bins": 50,
-        "n_random_cuts": 100
+        "n_random_cuts": 50
     }
 }

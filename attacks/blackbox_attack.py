@@ -1,4 +1,4 @@
-from datetime import datetime
+import argparse
 import json
 import logging
 from pathlib import Path
@@ -6,6 +6,7 @@ import random
 import sys
 from typing import Dict
 
+import joblib
 import nevergrad as ng
 import numpy as np
 import pandas as pd
@@ -28,7 +29,7 @@ ATTACK_TYPE_MAP = {
 
 # These features cannot be modified during the attack, as they are
 # essential for preserving the original intent of the malicious sample.
-FEATURES_ATTACK = {
+ATTACK_FEATURES = {
     "flooding": ["pfcp.msg_type"],
     "session_deletion": [
         "pfcp.msg_type",
@@ -50,7 +51,7 @@ FEATURES_ATTACK = {
     ],
 }
 
-MAPPING_FEAT = {
+FEAT_MAPPING = {
     # IP layer
     "ip.ttl": ng.p.Scalar(lower=2, upper=200).set_integer_casting(),
     "ip.id": ng.p.Scalar(lower=0, upper=65534).set_integer_casting(),
@@ -72,9 +73,6 @@ MAPPING_FEAT = {
     "pfcp.ie_type": ng.p.Scalar(lower=10, upper=96).set_integer_casting(),
     "pfcp.msg_type": ng.p.Scalar(lower=1, upper=57).set_integer_casting(),
     "pfcp.pdr_id": ng.p.Scalar(lower=1, upper=2).set_integer_casting(),
-    "pfcp.recovery_time_stamp": ng.p.Scalar(
-        lower=1747207882, upper=1753892199
-    ).set_integer_casting(),
     "pfcp.response_time": ng.p.Scalar(lower=2.0095e-05, upper=0.041239073),
     "pfcp.response_to": ng.p.Scalar(lower=1, upper=2565).set_integer_casting(),
     "pfcp.seid": ng.p.Scalar(lower=0, upper=4095).set_integer_casting(),
@@ -270,6 +268,7 @@ class BlackBoxAttack:
         best_loss = recommendation.loss
         self._save_results(
             sample_idx,
+            attack_type,
             best_params,
             best_loss,
             results_path,
@@ -278,9 +277,9 @@ class BlackBoxAttack:
 
     def _init_optimizer(self, attack_type: int) -> ng.optimizers.base.Optimizer:
         params = {}
-        for feature, parametrization in MAPPING_FEAT.items():
-            # Skip features that should not be modified to preserve attack intent
-            if feature not in FEATURES_ATTACK[ATTACK_TYPE_MAP[attack_type]]:
+        for feature, parametrization in FEAT_MAPPING.items():
+            # Skip features that should not be modified to preserve the attack intent
+            if feature not in ATTACK_FEATURES[ATTACK_TYPE_MAP[attack_type]]:
                 params[feature] = parametrization
 
         params = ng.p.Dict(**params)
@@ -290,6 +289,7 @@ class BlackBoxAttack:
     def _save_results(
         self,
         sample_idx: int,
+        attack_type: int,
         best_params: dict,
         best_loss: float,
         results_path: Path | str,
@@ -302,6 +302,7 @@ class BlackBoxAttack:
             results = {}
 
         results[str(sample_idx)] = {
+            "attack_type": attack_type,
             "best_params": best_params,
             "best_loss": best_loss,
             "evaded": bool(evaded),
@@ -327,12 +328,6 @@ class BlackBoxAttack:
                 "pfcp.outer_hdr_creation.teidpfcp.flags",
             ]:
                 adv_sample[feature] = hex(value)
-
-            elif feature == "pfcp.recovery_time_stamp":
-                adv_sample[feature] = datetime.fromtimestamp(value).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-
             else:
                 adv_sample[feature] = value
 
@@ -340,12 +335,40 @@ class BlackBoxAttack:
 
 
 if __name__ == "__main__":
-    import joblib
-
-    path = (
-        Path(__file__).parent.parent / "data/datasets/malicious_test_dataset_filled.csv"
+    argparser = argparse.ArgumentParser(
+        description="Black-box attack on network traffic classifiers."
     )
-    dataset = pd.read_csv(path, sep=";", low_memory=False)
+    argparser.add_argument(
+        "--model-name",
+        type=str,
+        choices=[
+            "ABOD",
+            "CBLOF",
+            "COPOD",
+            "ECOD",
+            "FeatureBaggingHBOS",
+            "GMM",
+            "HBOS",
+            "IForest",
+            "INNE",
+            "KNN",
+            "LODA",
+            "LOF",
+            "PCA",
+        ],
+        required=True,
+        help="The name of the trained model to attack",
+    )
+    argparser.add_argument(
+        "--ds-path",
+        type=str,
+        default=None,
+        help="The path to the attacks dataset file",
+        required=True,
+    )
+    args = argparser.parse_args()
+
+    dataset = pd.read_csv(args.ds_path, sep=";", low_memory=False)
     labels = dataset["ip.opt.time_stamp"].copy()
     dataset = dataset.drop(columns=["ip.opt.time_stamp"])
 
@@ -365,14 +388,14 @@ if __name__ == "__main__":
 
     bb = BlackBoxAttack(optimizer_cls)
 
-    detector_name = "IForest"
     detector: Detector = joblib.load(
-        Path(__file__).parent.parent / f"data/trained_models/{detector_name}.pkl"
+        Path(__file__).parent.parent / f"data/trained_models/{args.model_name}.pkl"
     )
 
     results_path = (
         Path(__file__).parent.parent
-        / f"results/blackbox_attack/{optimizer_cls.__class__.__name__.lower()}/{detector_name.lower()}.json"
+        / f"results/blackbox_attack/{optimizer_cls.__class__.__name__.lower()}"
+        / f"{args.model_name.lower()}.json"
     )
     if results_path.exists():
         with results_path.open("r") as f:
