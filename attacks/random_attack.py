@@ -69,7 +69,6 @@ FEAT_MAPPING: Dict[str, Dict[str, Any]] = {
         "min": 1747212643.0,
         "max": 1753894838.0,
     },
-    "pfcp.ie_len": {"type": "float_int", "min": 1.0, "max": 50.0},
     "pfcp.ie_type": {"type": "float_int", "min": 10.0, "max": 96.0},
     "pfcp.msg_type": {"type": "float_int", "min": 1.0, "max": 57.0},
     "pfcp.pdr_id": {"type": "float_int", "min": 1.0, "max": 2.0},
@@ -196,7 +195,7 @@ def random_attack(sample: pd.Series, attack_type: int, seed: int = 42) -> pd.Ser
 
     for field, mapping in FEAT_MAPPING.items():
         # Skip features that should not be modified to preserve the attack intent
-        if field in ATTACK_FEATURES[attack_type]:
+        if field in ATTACK_FEATURES[ATTACK_TYPE_MAP[attack_type]]:
             continue
 
         value = generate_random_value(mapping)
@@ -241,8 +240,8 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     dataset = pd.read_csv(args.ds_path, sep=";", low_memory=False)
-    dataset = dataset.drop(columns=["ip.opt.time_stamp"])
     labels = dataset["ip.opt.time_stamp"].copy()
+    dataset = dataset.drop(columns=["ip.opt.time_stamp"])
 
     detector: Detector = joblib.load(
         Path(__file__).parent.parent / f"data/trained_models/{args.model_name}.pkl"
@@ -265,7 +264,7 @@ if __name__ == "__main__":
             }
             continue
 
-        adv_sample = random_attack(sample)
+        adv_sample = random_attack(sample, int(labels.loc[idx]))
         adv_score = detector.decision_function(pd.DataFrame([adv_sample]))[0]
 
         if adv_score < detector._detector.threshold_:
@@ -286,7 +285,7 @@ if __name__ == "__main__":
                 "success": False,
             }
 
-    with (Path(__file__).parent.parent / f"results/{args.model_name}.json").open(
+    with (Path(__file__).parent.parent / f"results/random_attack/{args.model_name}.json").open(
         "w"
     ) as f:
         json.dump(results, f, indent=4)

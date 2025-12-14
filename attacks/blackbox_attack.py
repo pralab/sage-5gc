@@ -69,7 +69,6 @@ FEAT_MAPPING = {
     "pfcp.s": ng.p.Choice([True, False]),
     "pfcp.dst_interface": ng.p.Scalar(lower=0, upper=1).set_integer_casting(),
     "pfcp.duration_measurement": ng.p.Scalar(lower=1747212643, upper=1753894838),
-    "pfcp.ie_len": ng.p.Scalar(lower=1, upper=50).set_integer_casting(),
     "pfcp.ie_type": ng.p.Scalar(lower=10, upper=96).set_integer_casting(),
     "pfcp.msg_type": ng.p.Scalar(lower=1, upper=57).set_integer_casting(),
     "pfcp.pdr_id": ng.p.Scalar(lower=1, upper=2).set_integer_casting(),
