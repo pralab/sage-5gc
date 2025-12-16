@@ -234,7 +234,7 @@ class BlackBoxAttack:
         orig_score = detector.decision_function(pd.DataFrame([sample]))[0]
         logger.info(f"Original score: {orig_score}")
 
-        if hasattr(detector._detector, "threshold_"):
+        if hasattr(detector, "_detector"):
             logger.info(f"Detector threshold: {detector._detector.threshold_}")
             if orig_score < detector._detector.threshold_:
                 logger.info("Sample is already classified as benign. Skipping attack.")
@@ -259,7 +259,7 @@ class BlackBoxAttack:
             loss = self._compute_loss(x_adv, detector)
             logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
 
-            if hasattr(detector._detector, "threshold_"):
+            if hasattr(detector, "_detector"):
                 if loss < detector._detector.threshold_:
                     logger.info(f"Sample evaded the detector after {idx + 1} queries.")
                     break
@@ -284,7 +284,7 @@ class BlackBoxAttack:
             best_loss,
             results_path,
             bool(loss < detector._detector.threshold_)
-            if hasattr(detector._detector, "threshold_")
+            if hasattr(detector, "_detector")
             else bool(y_pred == 0),
         )
 
