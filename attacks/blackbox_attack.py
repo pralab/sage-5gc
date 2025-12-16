@@ -233,11 +233,17 @@ class BlackBoxAttack:
         # --------------------------------------
         orig_score = detector.decision_function(pd.DataFrame([sample]))[0]
         logger.info(f"Original score: {orig_score}")
-        logger.info(f"Detector threshold: {detector._detector.threshold_}")
 
-        if orig_score < detector._detector.threshold_:
-            logger.info("Sample is already classified as benign. Skipping attack.")
-            return
+        if hasattr(detector._detector, "threshold_"):
+            logger.info(f"Detector threshold: {detector._detector.threshold_}")
+            if orig_score < detector._detector.threshold_:
+                logger.info("Sample is already classified as benign. Skipping attack.")
+                return
+        else:
+            y_pred = detector.predict(pd.DataFrame([sample]))
+            if y_pred == 0:
+                logger.info("Sample is already classified as benign. Skipping attack.")
+                return
 
         # --------------------------
         # [Step 2] Set up optimizer
@@ -253,9 +259,15 @@ class BlackBoxAttack:
             loss = self._compute_loss(x_adv, detector)
             logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
 
-            if loss < detector._detector.threshold_:
-                logger.info(f"Sample evaded the detector after {idx + 1} queries.")
-                break
+            if hasattr(detector._detector, "threshold_"):
+                if loss < detector._detector.threshold_:
+                    logger.info(f"Sample evaded the detector after {idx + 1} queries.")
+                    break
+            else:
+                y_pred = detector.predict(pd.DataFrame([x_adv]))
+                if y_pred == 0:
+                    logger.info(f"Sample evaded the detector after {idx + 1} queries.")
+                    break
 
             self._optimizer.tell(x, loss)
 
@@ -271,7 +283,9 @@ class BlackBoxAttack:
             best_params,
             best_loss,
             results_path,
-            bool(loss < detector._detector.threshold_),
+            bool(loss < detector._detector.threshold_)
+            if hasattr(detector._detector, "threshold_")
+            else bool(y_pred == 0),
         )
 
     def _init_optimizer(self, attack_type: int) -> ng.optimizers.base.Optimizer:
