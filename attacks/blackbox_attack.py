@@ -359,7 +359,11 @@ if __name__ == "__main__":
             "CBLOF",
             "COPOD",
             "ECOD",
-            "FeatureBaggingHBOS",
+            "Ensemble_SVC_C10_G10_HBOS_KNN_ABOD_INNE_PCA",
+            "Ensemble_SVC_C10_G10_HBOS_KNN_GMM_INNE_PCA",
+            "Ensemble_SVC_C10_G10_HBOS_KNN_LOF_INNE_PCA",
+            "Ensemble_SVC_C100_G100_HBOS_KNN_LOF_INNE_FeatureBagging",
+            "FeatureBagging",
             "GMM",
             "HBOS",
             "IForest",
@@ -385,19 +389,19 @@ if __name__ == "__main__":
     labels = dataset["ip.opt.time_stamp"].copy()
     dataset = dataset.drop(columns=["ip.opt.time_stamp"])
 
-    # optimizer_cls = ng.optimizers.EvolutionStrategy(
-    #     recombination_ratio=0.9,
-    #     popsize=20,
-    #     only_offsprings=False,
-    #     offsprings=20,
-    #     ranker="simple",
-    # )
-
-    optimizer_cls = ng.optimizers.DifferentialEvolution(
-        popsize=20,
-        crossover="twopoints",
-        propagate_heritage=True,
+    optimizer_cls = ng.optimizers.EvolutionStrategy(
+         recombination_ratio=0.9,
+         popsize=20,
+         only_offsprings=False,
+         offsprings=20,
+         ranker="simple",
     )
+
+    #optimizer_cls = ng.optimizers.DifferentialEvolution(
+    #    popsize=20,
+    #    crossover="twopoints",
+    #    propagate_heritage=True,
+    #)
 
     bb = BlackBoxAttack(optimizer_cls)
 
@@ -422,6 +426,4 @@ if __name__ == "__main__":
             logger.info(f"Sample {idx} already attacked. Skipping.")
             continue
 
-        bb.run(
-            idx, row, int(labels.iloc[idx]), detector, results_path, query_budget=100
-        )
+        bb.run(idx, row, int(labels.iloc[idx]), detector, results_path, query_budget=100)
