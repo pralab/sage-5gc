@@ -218,7 +218,11 @@ if __name__ == "__main__":
             "CBLOF",
             "COPOD",
             "ECOD",
-            "FeatureBaggingHBOS",
+            "Ensemble_SVC_C10_G10_HBOS_KNN_ABOD_INNE_PCA",
+            "Ensemble_SVC_C10_G10_HBOS_KNN_GMM_INNE_PCA",
+            "Ensemble_SVC_C10_G10_HBOS_KNN_LOF_INNE_PCA",
+            "Ensemble_SVC_C100_G100_HBOS_KNN_LOF_INNE_FeatureBagging",
+            "FeatureBagging",
             "GMM",
             "HBOS",
             "IForest",
@@ -247,8 +251,21 @@ if __name__ == "__main__":
         Path(__file__).parent.parent / f"data/trained_models/{args.model_name}.pkl"
     )
 
-    results = {}
+    results_path = (
+            Path(__file__).parent.parent
+            / f"results/random_attack/{args.model_name}.json"
+    )
+    if results_path.exists():
+        with results_path.open("r") as f:
+            results = json.load(f)
+    else:
+        results = {}
+        results_path.parent.mkdir(parents=True, exist_ok=True)
+
     for idx, sample in dataset.iterrows():
+        if str(idx) in results:
+            print(f"Sample {idx} already attacked. Skipping.\n")
+            continue
         y_pred = detector.predict(pd.DataFrame([sample]))[0]
         init_score = detector.decision_function(pd.DataFrame([sample]))[0]
 
@@ -267,25 +284,37 @@ if __name__ == "__main__":
         adv_sample = random_attack(sample, int(labels.loc[idx]))
         adv_score = detector.decision_function(pd.DataFrame([adv_sample]))[0]
 
-        if adv_score < detector._detector.threshold_:
-            print(f"Sample {idx} - Adv score: {adv_score}")
-            print(f"Sample {idx} successfully attacked!\n")
-            results[idx] = {
-                "original_score": init_score,
-                "attacked_score": adv_score,
-                "attack_type": int(labels.loc[idx]),
-                "success": True,
-            }
+        if hasattr(detector, "_detector"):
+            print(f"Detector threshold: {detector._detector.threshold_}")
+            if adv_score < detector._detector.threshold_:
+                print(f"Sample {idx} - Adv score: {adv_score}")
+                print(f"Sample {idx} successfully attacked!\n")
+                results[idx] = {
+                    "original_score": init_score,
+                    "attacked_score": adv_score,
+                    "attack_type": int(labels.loc[idx]),
+                    "success": True,
+                }
+            else:
+                print(f"Sample {idx} - Adv score: {adv_score}\n")
+                results[idx] = {
+                    "original_score": init_score,
+                    "attacked_score": adv_score,
+                    "attack_type": int(labels.loc[idx]),
+                    "success": False,
+                }
         else:
-            print(f"Sample {idx} - Adv score: {adv_score}\n")
-            results[idx] = {
-                "original_score": init_score,
-                "attacked_score": adv_score,
-                "attack_type": int(labels.loc[idx]),
-                "success": False,
-            }
+            y_pred = detector.predict(pd.DataFrame([sample]))
+            if y_pred == 0:
+                print("Sample is already classified as benign. Skipping attack.")
+            else:
+                print(f"Sample {idx} - Adv score: {adv_score}\n")
+                results[idx] = {
+                    "original_score": init_score,
+                    "attacked_score": adv_score,
+                    "attack_type": int(labels.loc[idx]),
+                    "success": False,
+                }
 
-    with (Path(__file__).parent.parent / f"results/random_attack/{args.model_name}.json").open(
-        "w"
-    ) as f:
+    with results_path.open("w", encoding="utf-8") as f:
         json.dump(results, f, indent=4)
