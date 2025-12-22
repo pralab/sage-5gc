@@ -1,0 +1,6 @@
+{
+  "model": "Ensemble_SVC_C100_G100_HBOS_KNN_LOF_INNE_FeatureBagging",
+  "n_samples": 2170,
+  "n_evaded": 0,
+  "evasion_rate": 0.0
+}

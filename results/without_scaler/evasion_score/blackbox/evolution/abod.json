@@ -1,0 +1,6 @@
+{
+  "model": "abod",
+  "n_samples": 1109,
+  "n_evaded": 1109,
+  "evasion_rate": 1.0
+}

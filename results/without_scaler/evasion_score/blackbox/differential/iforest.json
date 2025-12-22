@@ -1,0 +1,6 @@
+{
+  "model": "iforest",
+  "n_samples": 2088,
+  "n_evaded": 1024,
+  "evasion_rate": 0.49
+}

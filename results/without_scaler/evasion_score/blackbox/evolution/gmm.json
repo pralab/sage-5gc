@@ -1,0 +1,6 @@
+{
+  "model": "gmm",
+  "n_samples": 1109,
+  "n_evaded": 0,
+  "evasion_rate": 0.0
+}

@@ -1,0 +1,6 @@
+{
+  "model": "hbos",
+  "n_samples": 2128,
+  "n_evaded": 2093,
+  "evasion_rate": 0.984
+}
