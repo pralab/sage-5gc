@@ -1,0 +1,6 @@
+{
+  "model": "featurebagging",
+  "n_samples": 2170,
+  "n_evaded": 29,
+  "evasion_rate": 0.013
+}
