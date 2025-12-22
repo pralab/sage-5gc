@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.7718348648869741,
+        "f1": 0.6467722289890377,
+        "precision": 0.9533213644524237,
+        "recall": 0.4894009216589862,
+        "accuracy": 0.900292246862644,
+        "detection_rate": 0.4894009216589862,
+        "fp_rate": 0.005494505494505495,
+        "tp": 531,
+        "fn": 554,
+        "fp": 26,
+        "tn": 4706
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4706,
+        "misclassified_as_attack": 26,
+        "accuracy": 0.9945054945054945,
+        "score_mean": 42524585174.06184,
+        "score_min": 0.9512316902497109,
+        "score_max": 46325151604164.086
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 531,
+            "missed": 495,
+            "detection_rate": 0.5175438596491229,
+            "auc_vs_normal": 0.7676441679478117,
+            "score_mean": 4.5848978296086637e+27,
+            "score_min": 5.551105109892552,
+            "score_max": 1.8859505599984343e+28
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.31690942193900773,
+            "score_mean": 6.313159791224048,
+            "score_min": 5.623368788238758,
+            "score_max": 6.872571146248158
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.9938715131022824,
+            "score_mean": 100892.55191336945,
+            "score_min": 95148.85764139639,
+            "score_max": 107969.08000310286
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.9938715131022824,
+            "score_mean": 2064406.3478309351,
+            "score_min": 2064406.3448609833,
+            "score_max": 2064406.3508008872
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 0,
+            "missed": 22,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.9938715131022824,
+            "score_mean": 8489708.9461184,
+            "score_min": 7866442.817520802,
+            "score_max": 9844975.650757289
+        }
+    },
+    "model_name": "FeatureBagging"
+}

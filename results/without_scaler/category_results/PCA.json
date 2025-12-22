@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.8602521902061073,
+        "f1": 0.49547180835524396,
+        "precision": 0.3627031650983747,
+        "recall": 0.7815668202764977,
+        "accuracy": 0.7031115695375623,
+        "detection_rate": 0.7815668202764977,
+        "fp_rate": 0.3148774302620456,
+        "tp": 848,
+        "fn": 237,
+        "fp": 1490,
+        "tn": 3242
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 3242,
+        "misclassified_as_attack": 1490,
+        "accuracy": 0.6851225697379544,
+        "score_mean": 2095.261685391768,
+        "score_min": 507.02843888387997,
+        "score_max": 7057.030126052452
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 802,
+            "missed": 224,
+            "detection_rate": 0.7816764132553606,
+            "auc_vs_normal": 0.8577698355026291,
+            "score_mean": 202812281.68436924,
+            "score_min": 1891.563826408201,
+            "score_max": 857793871.4275521
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.5616750113791533,
+            "score_mean": 1811.2285850030248,
+            "score_min": 1704.3254160599988,
+            "score_max": 1900.396539984632
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 6057370.418741879,
+            "score_min": 6057370.416791122,
+            "score_max": 6057370.421669866
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 732511133.101862,
+            "score_min": 732511133.1016276,
+            "score_max": 732511133.1020963
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 22,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 116303070.68698992,
+            "score_min": 116303070.68203844,
+            "score_max": 116303070.69281346
+        }
+    },
+    "model_name": "PCA"
+}

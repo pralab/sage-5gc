@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.37003965548807805,
+        "f1": 0.10314685314685315,
+        "precision": 1.0,
+        "recall": 0.054377880184331796,
+        "accuracy": 0.8236204228984012,
+        "detection_rate": 0.054377880184331796,
+        "fp_rate": 0.0,
+        "tp": 59,
+        "fn": 1026,
+        "fp": 0,
+        "tn": 4732
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4732,
+        "misclassified_as_attack": 0,
+        "accuracy": 1.0,
+        "score_mean": 0.06486074774248038,
+        "score_min": 0.04689480873404821,
+        "score_max": 0.08631807542759386
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 59,
+            "missed": 967,
+            "detection_rate": 0.057504873294346975,
+            "auc_vs_normal": 0.3658612342822869,
+            "score_mean": 0.06362138178279286,
+            "score_min": 0.04228720781296211,
+            "score_max": 0.10112911152709354
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.7089862799921972,
+            "score_mean": 0.06814107684872493,
+            "score_min": 0.06492283265228055,
+            "score_max": 0.07165339826113289
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.25139123696816,
+            "score_mean": 0.05886841518687353,
+            "score_min": 0.052029882176146104,
+            "score_max": 0.06274164230526191
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.8683431952662722,
+            "score_mean": 0.07253557394613634,
+            "score_min": 0.07243948331626256,
+            "score_max": 0.07263166457601015
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 0,
+            "missed": 22,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.15753477291938828,
+            "score_mean": 0.05648512768682128,
+            "score_min": 0.05246451466464912,
+            "score_max": 0.061212717997986624
+        }
+    },
+    "model_name": "LODA"
+}

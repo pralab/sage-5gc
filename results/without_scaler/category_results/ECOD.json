@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.8704461437180331,
+        "f1": 0.6283783783783784,
+        "precision": 0.8075253256150506,
+        "recall": 0.5142857142857142,
+        "accuracy": 0.8865394533264569,
+        "detection_rate": 0.5142857142857142,
+        "fp_rate": 0.028106508875739646,
+        "tp": 558,
+        "fn": 527,
+        "fp": 133,
+        "tn": 4599
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4599,
+        "misclassified_as_attack": 133,
+        "accuracy": 0.9718934911242604,
+        "score_mean": 32.069361799021756,
+        "score_min": 16.862152194467463,
+        "score_max": 59.475579692224166
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 532,
+            "missed": 494,
+            "detection_rate": 0.5185185185185185,
+            "auc_vs_normal": 0.8742842477660291,
+            "score_mean": 45.53363553185236,
+            "score_min": 35.559583253072226,
+            "score_max": 63.2835557384709
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.21756941283568504,
+            "score_mean": 25.390531695757208,
+            "score_min": 23.81308544354694,
+            "score_max": 27.20259266847014
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 4,
+            "missed": 8,
+            "detection_rate": 0.3333333333333333,
+            "auc_vs_normal": 0.965905888982812,
+            "score_mean": 48.697025291819465,
+            "score_min": 46.45263915239431,
+            "score_max": 52.47169374383415
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 0,
+            "missed": 12,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.9167371090448013,
+            "score_mean": 44.40306662067559,
+            "score_min": 42.60391243633469,
+            "score_max": 46.202220805016495
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 22,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.9999231537693075,
+            "score_mean": 61.70708707796461,
+            "score_min": 58.06897243589948,
+            "score_max": 65.60610947202801
+        }
+    },
+    "model_name": "ECOD"
+}

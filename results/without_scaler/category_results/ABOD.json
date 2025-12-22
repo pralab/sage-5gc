@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.6190698879284486,
+        "f1": 0.6951292844257366,
+        "precision": 1.0,
+        "recall": 0.5327188940092166,
+        "accuracy": 0.9128416709644146,
+        "detection_rate": 0.5327188940092166,
+        "fp_rate": 0.0,
+        "tp": 578,
+        "fn": 507,
+        "fp": 0,
+        "tn": 4732
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4732,
+        "misclassified_as_attack": 0,
+        "accuracy": 1.0,
+        "score_mean": -2.4380109997099682e-14,
+        "score_min": -7.380759927353228e-12,
+        "score_max": -5.536577852083224e-35
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 532,
+            "missed": 494,
+            "detection_rate": 0.5185185185185185,
+            "auc_vs_normal": 0.6073500648399434,
+            "score_mean": -2.930368579278096e-20,
+            "score_min": -8.013992691687913e-20,
+            "score_max": -0.0
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.19612783666038106,
+            "score_mean": -4.329859077969765e-20,
+            "score_min": -4.8025571580983693e-20,
+            "score_max": -3.679575215708508e-20
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": -2.0874434905523534e-55,
+            "score_min": -1.738553469251222e-54,
+            "score_max": -5.438550501485954e-59
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": -8.094259536426316e-58,
+            "score_min": -8.094262332472518e-58,
+            "score_max": -8.094256740380111e-58
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 22,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": -8.894377852787022e-59,
+            "score_min": -9.21712836417942e-59,
+            "score_max": -8.391070269824623e-59
+        }
+    },
+    "model_name": "ABOD"
+}

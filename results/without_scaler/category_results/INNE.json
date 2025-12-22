@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.6395000603791813,
+        "f1": 0.6939266386049309,
+        "precision": 0.9982698961937716,
+        "recall": 0.5317972350230414,
+        "accuracy": 0.91249785112601,
+        "detection_rate": 0.5317972350230414,
+        "fp_rate": 0.00021132713440405747,
+        "tp": 577,
+        "fn": 508,
+        "fp": 1,
+        "tn": 4731
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4731,
+        "misclassified_as_attack": 1,
+        "accuracy": 0.9997886728655959,
+        "score_mean": 0.7118385425137007,
+        "score_min": 0.4618201548513777,
+        "score_max": 0.9997048183090358
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 531,
+            "missed": 495,
+            "detection_rate": 0.5175438596491229,
+            "auc_vs_normal": 0.6271451969832538,
+            "score_mean": 0.7811793415209809,
+            "score_min": 0.5112653035831244,
+            "score_max": 1.0
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.33896872358410823,
+            "score_mean": 0.573236607741534,
+            "score_min": 0.569005838510765,
+            "score_max": 0.5740058385107649
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 1.0,
+            "score_min": 1.0,
+            "score_max": 1.0
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 1.0,
+            "score_min": 1.0,
+            "score_max": 1.0
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 22,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 1.0,
+            "score_min": 1.0,
+            "score_max": 1.0
+        }
+    },
+    "model_name": "INNE"
+}

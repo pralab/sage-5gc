@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.999347710070858,
+        "f1": 0.9977011494252873,
+        "precision": 0.9954128440366973,
+        "recall": 1.0,
+        "accuracy": 0.9991404504039884,
+        "detection_rate": 1.0,
+        "fp_rate": 0.0010566356720202875,
+        "tp": 1085,
+        "fn": 0,
+        "fp": 5,
+        "tn": 4727
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4727,
+        "misclassified_as_attack": 5,
+        "accuracy": 0.9989433643279797,
+        "score_mean": -1.2943240112137977,
+        "score_min": -5.178022782365473,
+        "score_max": 1.7086915279667947
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 1026,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.999346657241394,
+            "score_mean": 0.9701830714644617,
+            "score_min": 0.6651868539428063,
+            "score_max": 1.0409379555165965
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 13,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.9993660185967878,
+            "score_mean": 1.0017567325726093,
+            "score_min": 1.0002433888912416,
+            "score_max": 1.0097944320403474
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.9993660185967878,
+            "score_mean": 0.9999095758110242,
+            "score_min": 0.9998491310157742,
+            "score_max": 1.0000304654009828
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.9993660185967878,
+            "score_mean": 0.9998188143166663,
+            "score_min": 0.9998188143166646,
+            "score_max": 0.9998188143166677
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 22,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.999366018596788,
+            "score_mean": 0.9995522395662587,
+            "score_min": 0.9995491089544235,
+            "score_max": 0.9995562054166414
+        }
+    },
+    "model_name": "Ensemble_SVC_C10_G10_HBOS_KNN_LOF_INNE_PCA"
+}
