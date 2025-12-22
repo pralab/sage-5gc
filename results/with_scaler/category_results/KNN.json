@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.7167614554888571,
+        "f1": 0.6947115384615384,
+        "precision": 0.998272884283247,
+        "recall": 0.5327188940092166,
+        "accuracy": 0.9126697610452124,
+        "detection_rate": 0.5327188940092166,
+        "fp_rate": 0.00021132713440405747,
+        "tp": 578,
+        "fn": 507,
+        "fp": 1,
+        "tn": 4731
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4731,
+        "misclassified_as_attack": 1,
+        "accuracy": 0.9997886728655959,
+        "score_mean": 119.57483835610597,
+        "score_min": 0.13061539470192782,
+        "score_max": 3988.559586603045
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 532,
+            "missed": 494,
+            "detection_rate": 0.5185185185185185,
+            "auc_vs_normal": 0.7084736001740051,
+            "score_mean": 235032569203355.1,
+            "score_min": 17.62773356822675,
+            "score_max": 966782293988705.6
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.3686358020677547,
+            "score_mean": 22.72858286084787,
+            "score_min": 17.491116434276282,
+            "score_max": 35.067909332008774
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 345181719.0000003,
+            "score_min": 345181719.0,
+            "score_max": 345181719.0000007
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 3061535749.2889256,
+            "score_min": 3061535749.28885,
+            "score_max": 3061535749.289003
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 22,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 1.0,
+            "score_mean": 5569229652.41449,
+            "score_min": 5569229652.414487,
+            "score_max": 5569229652.414492
+        }
+    },
+    "model_name": "KNN"
+}

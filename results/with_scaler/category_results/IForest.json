@@ -1,0 +1,85 @@
+{
+    "overall_performance": {
+        "n_samples_total": 5817,
+        "n_normal": 4732,
+        "n_attacks": 1085,
+        "auc": 0.9520819131240967,
+        "f1": 0.7831594634873323,
+        "precision": 0.6572858036272671,
+        "recall": 0.9686635944700461,
+        "accuracy": 0.8999484270242393,
+        "detection_rate": 0.9686635944700461,
+        "fp_rate": 0.1158072696534235,
+        "tp": 1051,
+        "fn": 34,
+        "fp": 548,
+        "tn": 4184
+    },
+    "normal_condition": {
+        "n_samples": 4732,
+        "correctly_classified": 4184,
+        "misclassified_as_attack": 548,
+        "accuracy": 0.8841927303465765,
+        "score_mean": -0.09595069477989193,
+        "score_min": -0.2532986962683133,
+        "score_max": 0.09803658864699583
+    },
+    "attacks_by_category": {
+        "flooding": {
+            "attack_code": 0,
+            "n_samples": 1026,
+            "correctly_detected": 1026,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.9627475163912411,
+            "score_mean": 0.04327196544828193,
+            "score_min": 4.0548697352926766e-05,
+            "score_max": 0.09196502941287221
+        },
+        "session_deletion": {
+            "attack_code": 1,
+            "n_samples": 13,
+            "correctly_detected": 0,
+            "missed": 13,
+            "detection_rate": 0.0,
+            "auc_vs_normal": 0.3726835294882632,
+            "score_mean": -0.12484453356005988,
+            "score_min": -0.1335844202601607,
+            "score_max": -0.11649361685716064
+        },
+        "session_modification": {
+            "attack_code": 2,
+            "n_samples": 12,
+            "correctly_detected": 2,
+            "missed": 10,
+            "detection_rate": 0.16666666666666666,
+            "auc_vs_normal": 0.818610876303184,
+            "score_mean": -0.018384070995736402,
+            "score_min": -0.032474593117077455,
+            "score_max": 0.0028215746849838963
+        },
+        "upf_pdn0_fault": {
+            "attack_code": 5,
+            "n_samples": 12,
+            "correctly_detected": 12,
+            "missed": 0,
+            "detection_rate": 1.0,
+            "auc_vs_normal": 0.9419907016060862,
+            "score_mean": 0.02521300043849961,
+            "score_min": 0.023381054883940378,
+            "score_max": 0.027044945993058844
+        },
+        "restoration_teid": {
+            "attack_code": 6,
+            "n_samples": 22,
+            "correctly_detected": 11,
+            "missed": 11,
+            "detection_rate": 0.5,
+            "auc_vs_normal": 0.8753554138169523,
+            "score_mean": 0.0020422664313408615,
+            "score_min": -0.03556703430336705,
+            "score_max": 0.04508385520074487
+        }
+    },
+    "model_name": "IForest"
+}

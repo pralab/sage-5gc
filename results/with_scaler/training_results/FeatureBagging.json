@@ -1,0 +1,8 @@
+{
+    "model": "FeatureBagging",
+    "best_params": "{'base_estimator': LOF(algorithm='auto', contamination=0.1, leaf_size=30, metric='minkowski',\n  metric_params=None, n_jobs=1, n_neighbors=15, novelty=True, p=2), 'contamination': 0.01, 'n_estimators': 20}",
+    "roc_auc": 0.8442119737759581,
+    "f1": 0.40804813839789394,
+    "precision": 0.2563193952279707,
+    "recall": 1.0
+}
