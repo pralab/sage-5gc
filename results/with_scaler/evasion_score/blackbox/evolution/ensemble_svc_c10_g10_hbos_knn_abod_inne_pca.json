@@ -1,6 +1,0 @@
-{
-  "model": "ensemble_svc_c10_g10_hbos_knn_abod_inne_pca",
-  "n_samples": 2150,
-  "n_evaded": 2115,
-  "evasion_rate": 0.984
-}

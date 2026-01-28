@@ -1,3 +1,5 @@
+"""Preprocessing package for network traffic data."""
+
 from .preprocessor import Preprocessor
 from .utils import (
     convert_to_numeric,

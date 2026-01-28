@@ -72,7 +72,11 @@ FEAT_MAPPING: Dict[str, Dict[str, Any]] = {
     "pfcp.ie_type": {"type": "float_int", "min": 10.0, "max": 96.0},
     "pfcp.msg_type": {"type": "float_int", "min": 1.0, "max": 57.0},
     "pfcp.pdr_id": {"type": "float_int", "min": 1.0, "max": 2.0},
-    "pfcp.response_time": {"type": "float", "min": 2.0095e-05, "max": 0.041239073},
+    "pfcp.response_time": {
+        "type": "float",
+        "min": 2.0095e-05,
+        "max": 0.041239073,
+    },
     "pfcp.response_to": {"type": "float_int", "min": 1.0, "max": 2565.0},
     "pfcp.seid": {"type": "hex", "min": 0x00, "max": 0xFFF},
     "pfcp.seqno": {"type": "float_int", "min": 0.0, "max": 202364.0},
@@ -84,13 +88,21 @@ FEAT_MAPPING: Dict[str, Dict[str, Any]] = {
     "pfcp.outer_hdr_creation.teid": {"type": "hex", "min": 0x1, "max": 0x18B6},
     "pfcp.ue_ip_addr_ipv4": {"type": "ipv4"},
     "pfcp.flags": {"type": "hex", "min": 0x20, "max": 0x21},
-    "pfcp.volume_measurement.dlnop": {"type": "float_int", "min": 0.0, "max": 13195.0},
+    "pfcp.volume_measurement.dlnop": {
+        "type": "float_int",
+        "min": 0.0,
+        "max": 13195.0,
+    },
     "pfcp.volume_measurement.dlvol": {
         "type": "float_int",
         "min": 0.0,
         "max": 17834134.0,
     },
-    "pfcp.volume_measurement.tonop": {"type": "float_int", "min": 0.0, "max": 13195.0},
+    "pfcp.volume_measurement.tonop": {
+        "type": "float_int",
+        "min": 0.0,
+        "max": 13195.0,
+    },
     "pfcp.volume_measurement.tovol": {
         "type": "float_int",
         "min": 0.0,
@@ -170,7 +182,9 @@ def generate_random_value(mapping: dict) -> Any:
     return None
 
 
-def random_attack(sample: pd.Series, attack_type: int, seed: int = 42) -> pd.Series:
+def random_attack(
+    sample: pd.Series, attack_type: int, seed: int = 42
+) -> pd.Series:
     """
     Apply a random feature-space attack to the given DataFrame.
 
@@ -248,12 +262,13 @@ if __name__ == "__main__":
     dataset = dataset.drop(columns=["ip.opt.time_stamp"])
 
     detector: Detector = joblib.load(
-        Path(__file__).parent.parent / f"data/trained_models/{args.model_name}.pkl"
+        Path(__file__).parent.parent
+        / f"data/trained_models/with_scaler/{args.model_name}.pkl"
     )
 
     results_path = (
-            Path(__file__).parent.parent
-            / f"results/random_attack/{args.model_name}.json"
+        Path(__file__).parent.parent
+        / f"results/with_scaler/random_attack/{args.model_name}.json"
     )
     if results_path.exists():
         with results_path.open("r") as f:
@@ -306,7 +321,9 @@ if __name__ == "__main__":
         else:
             y_pred = detector.predict(pd.DataFrame([sample]))
             if y_pred == 0:
-                print("Sample is already classified as benign. Skipping attack.")
+                print(
+                    "Sample is already classified as benign. Skipping attack."
+                )
             else:
                 print(f"Sample {idx} - Adv score: {adv_score}\n")
                 results[idx] = {

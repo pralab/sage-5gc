@@ -1,3 +1,5 @@
+"""Preprocessor class for data preprocessing pipelines."""
+
 from pathlib import Path
 
 import joblib
@@ -8,7 +10,7 @@ from .utils import convert_to_numeric
 
 
 class Preprocessor:
-    """Class that exposes utility preprocessing functions as methods."""
+    """ Preprocessor class to handle training and testing preprocessing pipelines."""
 
     def train(
         self,
@@ -51,7 +53,8 @@ class Preprocessor:
 
         if not scaler_path.exists():
             joblib.dump(
-                scaler, Path(__file__).parent / "models_preprocessing/scaler.pkl"
+                scaler,
+                Path(__file__).parent / "models_preprocessing/scaler.pkl",
             )
 
         if data_path is not None:
@@ -91,7 +94,9 @@ class Preprocessor:
 
         scaler_path = Path(__file__).parent / "models_preprocessing/scaler.pkl"
         if not scaler_path.exists():
-            raise SystemError("Missing scaler model. Please run training first.")
+            raise SystemError(
+                "Missing scaler model. Please run training first."
+            )
 
         scaler: RobustScaler = joblib.load(scaler_path)
         df_final = scaler.transform(df)

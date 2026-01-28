@@ -1,3 +1,5 @@
+"""Black-box feature-space attack for network traffic classifiers."""
+
 import argparse
 import json
 import logging
@@ -8,6 +10,7 @@ from typing import Dict
 
 import joblib
 import nevergrad as ng
+from nevergrad.optimization.base import ConfiguredOptimizer, Optimizer
 import numpy as np
 import pandas as pd
 
@@ -68,7 +71,9 @@ FEAT_MAPPING = {
     "pfcp.f_teid_flags.v6": ng.p.Choice([True, False]),
     "pfcp.s": ng.p.Choice([True, False]),
     "pfcp.dst_interface": ng.p.Scalar(lower=0, upper=1).set_integer_casting(),
-    "pfcp.duration_measurement": ng.p.Scalar(lower=1747212643, upper=1753894838),
+    "pfcp.duration_measurement": ng.p.Scalar(
+        lower=1747212643, upper=1753894838
+    ),
     "pfcp.ie_type": ng.p.Scalar(lower=10, upper=96).set_integer_casting(),
     "pfcp.msg_type": ng.p.Scalar(lower=1, upper=57).set_integer_casting(),
     "pfcp.pdr_id": ng.p.Scalar(lower=1, upper=2).set_integer_casting(),
@@ -76,7 +81,9 @@ FEAT_MAPPING = {
     "pfcp.response_to": ng.p.Scalar(lower=1, upper=2565).set_integer_casting(),
     "pfcp.seid": ng.p.Scalar(lower=0, upper=4095).set_integer_casting(),
     "pfcp.seqno": ng.p.Scalar(lower=0, upper=202364).set_integer_casting(),
-    "pfcp.f_teid.teid": ng.p.Scalar(lower=29, upper=65507).set_integer_casting(),
+    "pfcp.f_teid.teid": ng.p.Scalar(
+        lower=29, upper=65507
+    ).set_integer_casting(),
     "pfcp.outer_hdr_creation.teid": ng.p.Scalar(
         lower=1, upper=6326
     ).set_integer_casting(),
@@ -181,7 +188,7 @@ FEAT_MAPPING = {
 class BlackBoxAttack:
     """Black-box attack for network traffic classifiers."""
 
-    def __init__(self, optimizer_cls: ng.optimization.Optimizer) -> None:
+    def __init__(self, optimizer_cls: ConfiguredOptimizer) -> None:
         """
         Create a BlackBoxAttack instance.
 
@@ -190,9 +197,9 @@ class BlackBoxAttack:
         optimizer_cls : ng.optimization.Optimizer
             The Nevergrad optimizer class to use for the attack.
         """
-        self._optimizer_cls = optimizer_cls
-        self._optimizer = None
-        self._query_budget = None
+        self._optimizer_cls: ConfiguredOptimizer = optimizer_cls
+        self._optimizer: Optimizer = None
+        self._query_budget: int = None
 
         random.seed(42)
 
@@ -202,7 +209,7 @@ class BlackBoxAttack:
         sample: pd.Series,
         attack_type: int,
         detector: Detector,
-        results_path: Path | str = None,
+        results_path: Path | str,
         query_budget: int = 100,
     ) -> None:
         """
@@ -237,36 +244,46 @@ class BlackBoxAttack:
         if hasattr(detector, "_detector"):
             logger.info(f"Detector threshold: {detector._detector.threshold_}")
             if orig_score < detector._detector.threshold_:
-                logger.info("Sample is already classified as benign. Skipping attack.")
+                logger.info(
+                    "Sample is already classified as benign. Skipping attack."
+                )
                 return
         else:
             y_pred = detector.predict(pd.DataFrame([sample]))
             if y_pred == 0:
-                logger.info("Sample is already classified as benign. Skipping attack.")
+                logger.info(
+                    "Sample is already classified as benign. Skipping attack."
+                )
                 return
 
         # --------------------------
         # [Step 2] Set up optimizer
         # --------------------------
-        self._optimizer = self._init_optimizer(attack_type)
+        self._optimizer: Optimizer = self._init_optimizer(attack_type)
 
         # --------------------
         # [Step 3] Run attack
         # --------------------
-        for idx in range(self._optimizer.budget):
+        for idx in range(self._optimizer.budget):  # type: ignore
             x = self._optimizer.ask()
             x_adv = self._apply_modifications(sample, x.value)
             loss = self._compute_loss(x_adv, detector)
-            logger.info(f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}")
+            logger.info(
+                f"Iteration {idx + 1}/{self._query_budget}: loss = {loss}"
+            )
 
             if hasattr(detector, "_detector"):
                 if loss < detector._detector.threshold_:
-                    logger.info(f"Sample evaded the detector after {idx + 1} queries.")
+                    logger.info(
+                        f"Sample evaded the detector after {idx + 1} queries."
+                    )
                     break
             else:
                 y_pred = detector.predict(pd.DataFrame([x_adv]))
                 if y_pred == 0:
-                    logger.info(f"Sample evaded the detector after {idx + 1} queries.")
+                    logger.info(
+                        f"Sample evaded the detector after {idx + 1} queries."
+                    )
                     break
 
             self._optimizer.tell(x, loss)
@@ -288,7 +305,7 @@ class BlackBoxAttack:
             else bool(y_pred == 0),
         )
 
-    def _init_optimizer(self, attack_type: int) -> ng.optimizers.base.Optimizer:
+    def _init_optimizer(self, attack_type: int) -> Optimizer:
         params = {}
         for feature, parametrization in FEAT_MAPPING.items():
             # Skip features that should not be modified to preserve the attack intent
@@ -297,7 +314,9 @@ class BlackBoxAttack:
 
         params = ng.p.Dict(**params)
         params.random_state = np.random.RandomState(42)
-        return self._optimizer_cls(parametrization=params, budget=self._query_budget)
+        return self._optimizer_cls(
+            parametrization=params, budget=self._query_budget
+        )
 
     def _save_results(
         self,
@@ -309,7 +328,7 @@ class BlackBoxAttack:
         evaded: bool,
     ) -> None:
         if Path(results_path).exists():
-            with results_path.open("r") as f:
+            with Path(results_path).open("r") as f:
                 results = json.load(f)
         else:
             results = {}
@@ -383,35 +402,44 @@ if __name__ == "__main__":
         help="The path to the attacks dataset file",
         required=True,
     )
+    argparser.add_argument(
+        "--optmizer",
+        type=str,
+        choices=["ES", "DE"],
+        default="ES",
+        help="The Nevergrad optimizer to use for the attack",
+    )
     args = argparser.parse_args()
 
     dataset = pd.read_csv(args.ds_path, sep=";", low_memory=False)
     labels = dataset["ip.opt.time_stamp"].copy()
     dataset = dataset.drop(columns=["ip.opt.time_stamp"])
 
-    optimizer_cls = ng.optimizers.EvolutionStrategy(
-         recombination_ratio=0.9,
-         popsize=20,
-         only_offsprings=False,
-         offsprings=20,
-         ranker="simple",
-    )
-
-    #optimizer_cls = ng.optimizers.DifferentialEvolution(
-    #    popsize=20,
-    #    crossover="twopoints",
-    #    propagate_heritage=True,
-    #)
+    if args.optmizer == "ES":
+        optimizer_cls = ng.optimizers.EvolutionStrategy(
+            recombination_ratio=0.9,
+            popsize=20,
+            only_offsprings=False,
+            offsprings=20,
+            ranker="simple",
+        )
+    else:
+        optimizer_cls = ng.optimizers.DifferentialEvolution(
+            popsize=20,
+            crossover="twopoints",
+            propagate_heritage=True,
+        )
 
     bb = BlackBoxAttack(optimizer_cls)
 
     detector: Detector = joblib.load(
-        Path(__file__).parent.parent / f"data/trained_models/{args.model_name}.pkl"
+        Path(__file__).parent.parent
+        / f"data/trained_models/with_scaler/{args.model_name}.pkl"
     )
 
     results_path = (
         Path(__file__).parent.parent
-        / f"results/blackbox_attack/{optimizer_cls.__class__.__name__.lower()}"
+        / f"results/with_scaler/blackbox_attack/{optimizer_cls.__class__.__name__.lower()}"
         / f"{args.model_name.lower()}.json"
     )
     if results_path.exists():
@@ -426,4 +454,11 @@ if __name__ == "__main__":
             logger.info(f"Sample {idx} already attacked. Skipping.")
             continue
 
-        bb.run(idx, row, int(labels.iloc[idx]), detector, results_path, query_budget=100)
+        bb.run(
+            idx,  # type: ignore
+            row,
+            int(labels.iloc[idx]),  # type: ignore
+            detector,
+            results_path,
+            query_budget=100,
+        )

@@ -1,3 +1,5 @@
+"""Abstract base class for anomaly detectors."""
+
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -5,13 +7,14 @@ import pandas as pd
 
 
 class BaseDetector(ABC):
+    """Abstract base class for anomaly detectors."""
 
     @abstractmethod
     def fit(
         self, X: pd.DataFrame, y: np.ndarray, skip_preprocess: bool = False
     ) -> None:
         """
-        Train the ensemble meta-classifier.
+        Train the classifier.
 
         Parameters
         ----------
@@ -21,15 +24,12 @@ class BaseDetector(ABC):
             The true labels for the training data.
         skip_preprocess : bool, optional
             Whether to skip preprocessing, by default False.
-
-        Returns
-        -------
-        Self
-            The trained EnsembleDetector instance.
         """
 
     @abstractmethod
-    def predict(self, X: pd.DataFrame, skip_preprocess: bool = False) -> np.ndarray:
+    def predict(
+        self, X: pd.DataFrame, skip_preprocess: bool = False
+    ) -> np.ndarray:
         """
         Predict class labels for samples in X.
 

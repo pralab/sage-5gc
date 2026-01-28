@@ -1,3 +1,5 @@
+"""Detector wrapper class for anomaly detection models."""
+
 from pathlib import Path
 
 import numpy as np
@@ -29,7 +31,9 @@ class Detector(base_detector.BaseDetector):
 
         self._preprocessor = Preprocessor()
         self._trained = False
-        self._detector: BaseDetector = self.detector_class(**self.detector_params)
+        self._detector: BaseDetector = self.detector_class(
+            **self.detector_params
+        )
 
     def fit(
         self,
@@ -45,9 +49,10 @@ class Detector(base_detector.BaseDetector):
         X : pd.DataFrame
             The training data.
         data_path : Path | str | None
-            Path to load/save the preprocessed data. If specified, the preprocessed data
-            will be saved to this path after preprocessing. If a file exists at this path,
-            it will be loaded instead of preprocessing the data again.
+            Path to load/save the preprocessed data. If specified, the
+            preprocessed data will be saved to this path after preprocessing.
+            If a file exists at this path, it will be loaded instead of
+            preprocessing the data again.
         skip_preprocess : bool, optional
             Whether to skip preprocessing, by default False.
 
@@ -62,7 +67,9 @@ class Detector(base_detector.BaseDetector):
         X = X[sorted(X.columns)]
 
         if X.isnull().any().any():
-            raise ValueError("Input data contains NaN values after preprocessing.")
+            raise ValueError(
+                "Input data contains NaN values after preprocessing."
+            )
 
         self._detector.fit(X.values)
         self._trained = True
@@ -83,9 +90,10 @@ class Detector(base_detector.BaseDetector):
         X : pd.DataFrame
             The data to predict on.
         data_path : Path | str | None
-            Path to load/save the preprocessed data. If specified, the preprocessed data
-            will be saved to this path after preprocessing. If a file exists at this path,
-            it will be loaded instead of preprocessing the data again.
+            Path to load/save the preprocessed data. If specified, the
+            preprocessed data will be saved to this path after preprocessing.
+            If a file exists at this path, it will be loaded instead of
+            preprocessing the data again.
         skip_preprocess : bool, optional
             Whether to skip preprocessing, by default False.
 
@@ -104,7 +112,9 @@ class Detector(base_detector.BaseDetector):
         X = X[sorted(X.columns)]
 
         if X.isnull().any().any():
-            raise ValueError("Input data contains NaN values after preprocessing.")
+            raise ValueError(
+                "Input data contains NaN values after preprocessing."
+            )
 
         return self._detector.predict(X.values)
 
@@ -122,9 +132,10 @@ class Detector(base_detector.BaseDetector):
         df : pd.DataFrame
             The data to compute scores for.
         data_path : Path | str | None
-            Path to load/save the preprocessed data. If specified, the preprocessed data
-            will be saved to this path after preprocessing. If a file exists at this path,
-            it will be loaded instead of preprocessing the data again.
+            Path to load/save the preprocessed data. If specified, the
+            preprocessed data will be saved to this path after preprocessing.
+            If a file exists at this path, it will be loaded instead of
+            preprocessing the data again.
         skip_preprocess : bool, optional
             Whether to skip preprocessing, by default False.
 
@@ -142,6 +153,8 @@ class Detector(base_detector.BaseDetector):
         X = X[sorted(X.columns)]
 
         if X.isnull().any().any():
-            raise ValueError("Input data contains NaN values after preprocessing.")
+            raise ValueError(
+                "Input data contains NaN values after preprocessing."
+            )
 
         return self._detector.decision_function(X.values)

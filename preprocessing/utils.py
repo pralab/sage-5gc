@@ -1,3 +1,5 @@
+"""Utility functions for preprocessing network traffic data."""
+
 import ipaddress
 import json
 import logging
@@ -54,7 +56,8 @@ def drop_useless_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def drop_constant_columns(df: pd.DataFrame) -> pd.DataFrame:
     const_columns_path = (
-        Path(__file__).parent / "models_preprocessing/constant_columns_dropped.json"
+        Path(__file__).parent
+        / "models_preprocessing/constant_columns_dropped.json"
     )
 
     if const_columns_path.exists():
@@ -125,7 +128,9 @@ def _detect_type(series: pd.Series) -> str:
     return "skip"
 
 
-def convert_to_numeric(df: pd.DataFrame) -> tuple[pd.DataFrame, list[tuple[str, str]]]:
+def convert_to_numeric(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, list[tuple[str, str]]]:
     cat_cols = []
     for col in df.columns:
         dtype = _detect_type(df[col])
@@ -161,13 +166,18 @@ def convert_to_numeric(df: pd.DataFrame) -> tuple[pd.DataFrame, list[tuple[str, 
             df[col] = (
                 df[col]
                 .apply(
-                    lambda x: int(ipaddress.ip_address(x)) if pd.notnull(x) else np.nan
+                    lambda x: int(ipaddress.ip_address(x))
+                    if pd.notnull(x)
+                    else np.nan
                 )
                 .astype("category")
             )
 
         elif dtype == "datetime":
-            df[col] = pd.to_datetime(df[col], errors="coerce").astype("int64") // 10**9
+            df[col] = (
+                pd.to_datetime(df[col], errors="coerce").astype("int64")
+                // 10**9
+            )
             df[col] = df[col].astype("category")
 
     return df, cat_cols
@@ -181,33 +191,46 @@ def restore_categoric_columns(
             df[col] = df[col].map({1: True, 0: False}).astype("category")
 
         elif dtype == "hex":
-            df[col] = df[col].apply(lambda x: hex(int(x)) if pd.notnull(x) else np.nan)
+            df[col] = df[col].apply(
+                lambda x: hex(int(x)) if pd.notnull(x) else np.nan
+            )
             df[col] = df[col].astype("category")
 
         elif dtype == "ip_address":
             df[col] = df[col].apply(
-                lambda x: str(ipaddress.ip_address(int(x))) if pd.notnull(x) else np.nan
+                lambda x: str(ipaddress.ip_address(int(x)))
+                if pd.notnull(x)
+                else np.nan
             )
             df[col] = df[col].astype("category")
 
         elif dtype == "datetime":
-            df[col] = pd.to_datetime(df[col].astype("float"), unit="s", errors="coerce")
+            df[col] = pd.to_datetime(
+                df[col].astype("float"), unit="s", errors="coerce"
+            )
             df[col] = df[col].astype("category")
 
     return df
 
 
-def load_imputers(random_state: int = 42) -> tuple[SimpleImputer, IterativeImputer]:
+def load_imputers(
+    random_state: int = 42,
+) -> tuple[SimpleImputer, IterativeImputer]:
     simple_imputer_path = (
         Path(__file__).parent / "models_preprocessing/simple_imputer.pkl"
     )
-    iter_imputer_path = Path(__file__).parent / "models_preprocessing/iter_imputer.pkl"
+    iter_imputer_path = (
+        Path(__file__).parent / "models_preprocessing/iter_imputer.pkl"
+    )
 
     if not simple_imputer_path.exists():
         simple_imputer = SimpleImputer(strategy="most_frequent")
         iter_imputer = IterativeImputer(
             estimator=RandomForestRegressor(
-                n_jobs=-1, max_depth=20, n_estimators=50, random_state=random_state
+                n_jobs=-1,
+                max_depth=20,
+                n_estimators=50,
+                random_state=random_state,
             ),
             initial_strategy="median",
             max_iter=10,
