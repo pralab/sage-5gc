@@ -399,11 +399,11 @@ if __name__ == "__main__":
         "--ds-path",
         type=str,
         default=None,
-        help="The path to the attacks dataset file",
+        help="The path to the attack dataset file (CSV format)",
         required=True,
     )
     argparser.add_argument(
-        "--optmizer",
+        "--optimizer",
         type=str,
         choices=["ES", "DE"],
         default="ES",

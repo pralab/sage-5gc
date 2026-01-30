@@ -10,6 +10,14 @@ This directory contains scripts to reproduce the experimental results and figure
 > [!WARNING]
 > Take into account that some paths in the scripts are hardcoded.
 
+## Installation
+
+Install all dependencies:
+
+```bash
+pip install -r ..\requirements.txt
+```
+
 ## Scripts
 
 ### `create_datasets.py`
